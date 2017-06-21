@@ -270,7 +270,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
 
   @Override
   public void handleNotification(Notification notification, Object handback) {
-    log.info("Received Notification: {} - {}", handback, notification.getType());
+    log.debug("Received Notification: {} - {}", handback, notification.getType());
     String eventBody = eventBuilder.event(notification).build();
 
     try {

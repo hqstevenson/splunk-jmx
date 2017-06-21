@@ -719,7 +719,7 @@ public class SplunkJmxAttributeChangeMonitor {
           log.trace("Attribute value change detected for attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
           returnValue = true;
         } else {
-          log.warn("Value not present for monitored attribute {} - ignoring attribute in change monitor", attributeName);
+          log.debug("Value not present for monitored attribute {} - ignoring attribute in change monitor", attributeName);
         }
       } else if (!newValue.equals(oldValue)) {
         log.trace("Attribute value change detected for attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
