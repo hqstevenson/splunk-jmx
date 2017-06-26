@@ -37,7 +37,7 @@ import javax.management.ObjectName;
 import org.junit.Before;
 import org.junit.Test;
 
-public class SplunkJmxAttributeChangeMonitorTest {
+public class SplunkJmxAttributeChangeMonitorConfigurationTest {
   SplunkJmxAttributeChangeMonitor instance;
 
   String[] rawInitialObjectNameStringArray = new String[]{"java.lang:type=GarbageCollector,name=*"};
@@ -422,6 +422,7 @@ public class SplunkJmxAttributeChangeMonitorTest {
     assertFalse(instance.emptyAttributesIncluded());
   }
 
+  @Test
   public void testIncludeEmptyAttributes() throws Exception {
     assertTrue("Unexpected default value", instance.includeEmptyAttrs);
 
