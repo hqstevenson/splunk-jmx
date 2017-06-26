@@ -75,7 +75,7 @@ public class JmxNotificationEventBuilder extends EventBuilderSupport<Notificatio
         JSONObject tabularData = OpenTypeJSONUtils.createTabularDataJSON((TabularData) userData);
         notificationEvent.put(NOTIFICATION_USER_DATA_KEY, tabularData);
       } else {
-        log.info("Processing {} for {}", userData.getClass().getName(), "userData");
+        log.debug("Processing {} for {}", userData.getClass().getName(), "userData");
         notificationEvent.put(NOTIFICATION_USER_DATA_KEY, userData.toString());
       }
     }

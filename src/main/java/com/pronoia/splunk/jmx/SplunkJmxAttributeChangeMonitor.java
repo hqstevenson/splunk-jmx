@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
@@ -693,6 +694,8 @@ public class SplunkJmxAttributeChangeMonitor {
 
           }
         }
+      } catch (InstanceNotFoundException instanceNotFoundEx) {
+        log.warn("Unexpected exception in run: ", instanceNotFoundEx);
       } catch (Throwable ex) {
         log.error("Error collecting attribute values", ex);
       } finally {
