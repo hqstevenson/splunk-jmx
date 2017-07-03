@@ -209,7 +209,7 @@ public class OpenTypeJSONUtils {
       }
 
       // Add the value to the JSON tabular data
-      LOG.trace("Adding row {} : {}", jsonKey, compositeDataObject);
+      LOG.debug("Adding row {} : {}", jsonKey, compositeDataObject);
       jsonObject.put(jsonKey, compositeDataObject);
     }
   }
