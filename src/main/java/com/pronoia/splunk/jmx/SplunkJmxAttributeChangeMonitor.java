@@ -670,6 +670,7 @@ public class SplunkJmxAttributeChangeMonitor {
                   lastAttributeInfo.attributeMap = attributeMap;
                   suppressionCount = 0;
                   eventBuilder.source(objectNameString).event(transferAttributeList(attributeList));
+                  log.info(eventBuilder.build());
                   splunkClient.sendEvent(eventBuilder.build());
                   continue;
                 }
@@ -682,6 +683,7 @@ public class SplunkJmxAttributeChangeMonitor {
                 suppressionCount = 0;
                 eventBuilder.source(objectNameString).event(transferAttributeList(attributeList));
                 log.debug("Posting payload for existing object");
+                log.info(eventBuilder.build());
                 splunkClient.sendEvent(eventBuilder.build());
                 continue;
               }
@@ -691,7 +693,9 @@ public class SplunkJmxAttributeChangeMonitor {
               lastAttributeInfo.attributeMap = attributeMap;
               lastAttributes.put(objectNameString, lastAttributeInfo);
               eventBuilder.source(objectNameString).event(attributeList);
+              log.info("before:{}",eventBuilder.build());
               eventBuilder.event(transferAttributeList(attributeList));
+              log.info(eventBuilder.build());
               splunkClient.sendEvent(eventBuilder.build());
               continue;
             }
