@@ -22,20 +22,17 @@ import static com.pronoia.splunk.jmx.eventcollector.builder.JmxEventConstants.CO
 
 import com.pronoia.splunk.eventcollector.builder.EventBuilderSupport;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeDataSupport;
 
-import org.json.simple.JSONObject;
-
 /**
  * Splunk Event Builder for JMX AttributeLists.
  */
-public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList> {
+public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList>{
   final String containerName = System.getProperty("karaf.name");
 
   boolean includeEmptyAttributes = true;
@@ -81,22 +78,22 @@ public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList
     this.includeEmptyObjectNameLists = includeEmptyObjectNameLists;
   }
 
-  protected void serializeBody(JSONObject eventObject) {
-    log.debug("{}.serializeBody(JSONObject) ...", this.getClass().getName());
+  protected void serializeBody(Map eventObject) {
+    log.debug("{}.serializeBody() ...", this.getClass().getName());
 
-    JSONObject eventBodyObject = new JSONObject();
-
+    Map<String,Object> eventBodyObject =new HashMap<>();
     if (containerName != null && !containerName.isEmpty()) {
       eventBodyObject.put(CONTAINER_KEY, containerName);
     }
 
-    for (Object attributeObject : getEvent()) {
-      Attribute attribute = (Attribute) attributeObject;
+    for (Object attributeObject : this.getEvent()) {
 
+      Attribute attribute = (Attribute) attributeObject;
       String attributeName = attribute.getName();
       Object attributeValue = attribute.getValue();
 
       log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
+
       if (attributeValue == null) {
         if (includeEmptyAttributes) {
           eventBodyObject.put(attributeName, attributeValue);
@@ -118,7 +115,7 @@ public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList
         }
       } else if (attributeValue instanceof CompositeDataSupport) {
         CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
-        JSONObject compositeDataObject = new JSONObject();
+        Map<String,Object> compositeDataObject =new HashMap<>();
         for (String key : compositeDataSupport.getCompositeType().keySet()) {
           compositeDataObject.put(key, compositeDataSupport.get(key));
         }
@@ -126,20 +123,19 @@ public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList
       } else {
         String attributeValueAsString = attributeValue.toString();
         if (includeEmptyAttributes) {
-          eventBodyObject.put(attributeName, attributeValueAsString);
+          eventBodyObject.put(attributeName, attributeValue);
         } else {
           if (attributeValueAsString.isEmpty()) {
             log.warn("Ignoring empty string value for attribute {}", attributeName);
           } else if (attributeValueAsString.equalsIgnoreCase("0")) {
             log.warn("Ignoring zero value for attribute {} = {}",
-                attributeName, attributeValueAsString);
+                    attributeName, attributeValueAsString);
           } else {
             eventBodyObject.put(attributeName, attributeValue);
           }
         }
       }
     }
-
     eventObject.put(EVENT_BODY_KEY, eventBodyObject);
   }
 }
