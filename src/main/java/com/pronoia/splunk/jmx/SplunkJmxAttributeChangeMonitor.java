@@ -27,12 +27,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.LongStream;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
@@ -42,7 +44,6 @@ import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -620,6 +621,7 @@ public class SplunkJmxAttributeChangeMonitor {
           eventBuilder.clearFields();
           Hashtable<String, String> objectNameProperties = objectName.getKeyPropertyList();
           for (String propertyName : objectNameProperties.keySet()) {
+            log.debug("field name:{} <> properties:{}",propertyName,objectNameProperties.get(propertyName));
             eventBuilder.setField(propertyName, objectNameProperties.get(propertyName));
           }
           String objectNameString = objectName.getCanonicalName();
@@ -638,6 +640,8 @@ public class SplunkJmxAttributeChangeMonitor {
           }
 
           log.debug("Retrieving Attributes for '{}'", objectNameString);
+          log.debug("object Name'{}'", objectName);
+
           AttributeList attributeList = mbeanServer.getAttributes(objectName, queriedAttributeNameArray);
           eventBuilder.timestamp();
           if (attributeList == null) {
@@ -665,7 +669,8 @@ public class SplunkJmxAttributeChangeMonitor {
                 if (attributeValueChanged(attributeName, lastAttributeInfo.attributeMap.get(attributeName), attributeMap.get(attributeName))) {
                   lastAttributeInfo.attributeMap = attributeMap;
                   suppressionCount = 0;
-                  eventBuilder.source(objectNameString).event(attributeList);
+                  eventBuilder.source(objectNameString).event(transferAttributeList(attributeList));
+                  log.info(eventBuilder.build());
                   splunkClient.sendEvent(eventBuilder.build());
                   continue;
                 }
@@ -676,8 +681,9 @@ public class SplunkJmxAttributeChangeMonitor {
               } else {
                 lastAttributeInfo.attributeMap = attributeMap;
                 suppressionCount = 0;
-                eventBuilder.source(objectNameString).event(attributeList);
+                eventBuilder.source(objectNameString).event(transferAttributeList(attributeList));
                 log.debug("Posting payload for existing object");
+                log.info(eventBuilder.build());
                 splunkClient.sendEvent(eventBuilder.build());
                 continue;
               }
@@ -687,7 +693,9 @@ public class SplunkJmxAttributeChangeMonitor {
               lastAttributeInfo.attributeMap = attributeMap;
               lastAttributes.put(objectNameString, lastAttributeInfo);
               eventBuilder.source(objectNameString).event(attributeList);
-              eventBuilder.event(attributeList);
+              log.info("before:{}",eventBuilder.build());
+              eventBuilder.event(transferAttributeList(attributeList));
+              log.info(eventBuilder.build());
               splunkClient.sendEvent(eventBuilder.build());
               continue;
             }
@@ -702,11 +710,31 @@ public class SplunkJmxAttributeChangeMonitor {
         log.debug("{}.run() completed", this.getClass().getSimpleName());
       }
     }
+    /*
+       Convert the primitive AllThreadIds to a Object Long so it can be safely converted
+       to JSON.
+     */
+    private AttributeList transferAttributeList(AttributeList attributeList){
+      log.debug("fixing allThreadIds long[] to Long[] before sending off to the splunk client...");
+      AttributeList newAttributeList=new AttributeList();
+      attributeList.forEach((attrib)->{
+        if(((Attribute)attrib).getName().equals("AllThreadIds")){
+          long[] threadIds=(long[])((Attribute)attrib).getValue();
+          List<Long> allThreadIds = LongStream.of(threadIds).boxed().collect(Collectors.toList());
+          newAttributeList.add(new Attribute(((Attribute) attrib).getName(), allThreadIds));
+          log.debug("found AllThreadIds long[] converting to Long[]");
+        }else{
+          newAttributeList.add(attrib);
+        }
+      });
+      return newAttributeList;
+    }
 
     Map<String, Object> buildAttributeMap(AttributeList attributeList) {
       Map<String, Object> newAttributeMap = new HashMap<>(attributeList.size());
       for (Object attributeObject : attributeList) {
         Attribute attribute = (Attribute) attributeObject;
+        log.debug("Attribute name:{} <> Attribute Value:{}",attribute.getName(),attribute.getValue());
         newAttributeMap.put(attribute.getName(), attribute.getValue());
       }
 

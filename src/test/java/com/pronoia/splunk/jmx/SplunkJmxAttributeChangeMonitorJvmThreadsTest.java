@@ -24,6 +24,8 @@ import com.pronoia.splunk.stub.EventCollectorClientStub;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SplunkJmxAttributeChangeMonitorJvmThreadsTest {
   SplunkJmxAttributeChangeMonitor instance;
@@ -38,7 +40,8 @@ public class SplunkJmxAttributeChangeMonitorJvmThreadsTest {
   @Test
   public void testStartStop() throws Exception {
     EventCollectorClientStub clientStub = new EventCollectorClientStub();
-
+    Logger log = LoggerFactory.getLogger(this.getClass());
+    log.info("starting start stop test case....");
     instance.setSplunkClient(clientStub);
     instance.setGranularityPeriod(1);
 

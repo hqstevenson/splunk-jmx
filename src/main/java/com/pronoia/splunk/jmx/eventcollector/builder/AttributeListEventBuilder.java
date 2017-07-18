@@ -139,7 +139,7 @@ public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList
         }
       }
     }
-
+    eventBodyObject.forEach((k,v)->log.debug("Key:'{}' Value:'{}'",k,v));
     eventObject.put(EVENT_BODY_KEY, eventBodyObject);
   }
 }
