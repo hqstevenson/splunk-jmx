@@ -560,11 +560,19 @@ public class SplunkJmxAttributeChangeMonitor {
     this.splunkClient = splunkClient;
   }
 
+  public Set<String> getExcludedObservedAttributes() {
+    return excludedObservedAttributes;
+  }
+
+  public void setExcludedObservedAttributes(Set<String> excludedObservedAttributes) {
+    this.excludedObservedAttributes = excludedObservedAttributes;
+  }
+
   /*
-  private method that checks to see an attribute can be added to the observed list. An attribute can be added
-  to an observed if its not listed in the excluded set. The attribute can be added to the observed list if its listed
-  in the excluded attributes set and listed in the containedAttributes set.
-  */
+    private method that checks to see an attribute can be added to the observed list. An attribute can be added
+    to an observed if its not listed in the excluded set. The attribute can be added to the observed list if its listed
+    in the excluded attributes set and listed in the containedAttributes set.
+    */
   private boolean canAddToObservedAttributes(String attributeName){
     boolean canAdd=true;
     if(excludedObservedAttributes.contains(attributeName)){
