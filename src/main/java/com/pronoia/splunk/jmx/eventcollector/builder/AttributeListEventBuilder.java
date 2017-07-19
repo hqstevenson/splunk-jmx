@@ -20,7 +20,7 @@ package com.pronoia.splunk.jmx.eventcollector.builder;
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
 import static com.pronoia.splunk.jmx.eventcollector.builder.JmxEventConstants.CONTAINER_KEY;
 
-import com.pronoia.splunk.eventcollector.builder.EventBuilderSupport;
+import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
 
 import java.util.*;
 
@@ -32,7 +32,7 @@ import javax.management.openmbean.CompositeDataSupport;
 /**
  * Splunk Event Builder for JMX AttributeLists.
  */
-public class AttributeListEventBuilder extends EventBuilderSupport<AttributeList>{
+public class AttributeListEventBuilder extends JacksonEventBuilderSupport<AttributeList>{
   final String containerName = System.getProperty("karaf.name");
 
   boolean includeEmptyAttributes = true;

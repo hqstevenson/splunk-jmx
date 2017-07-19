@@ -74,37 +74,8 @@ public class SplunkJmxAttributeChangeMonitor {
 
   private Map<String, ScheduledFuture<?>> taskMap;
 
-  /**
-   * This is a public method added for testing and loading the exclused-observed-attributes.properties outside of the
-   * osgi container.
-   */
-  public void loadExcludedProperties(){
-    InputStream inputStream = null;
-    try {
-      Properties excludedAttributeProperties = new Properties();
-      log.info("Loading excluded-observed-attributes.properties from class path");
-      inputStream = ClassLoader.class.getResourceAsStream("/excluded-observed-attributes.properties");
-      excludedAttributeProperties.load(inputStream);
-      for (Map.Entry<?, ?> entry: excludedAttributeProperties.entrySet()) {
-        boolean addToExcluded=Boolean.getBoolean((String)entry.getKey());
-        if(addToExcluded){
-          log.info("Adding {} to excluded observed attributes.",(String)entry.getKey());
-          excludedObservedAttributes.add((String)entry.getKey());
-        }else{
-          log.info("Not adding {} to excluded observed attributes.",(String)entry.getKey());
-        }
-      }
-    } catch (FileNotFoundException e) {
-      log.error("ERROR WARNING!! Could potentially flood splunk:{}",e);
-    } catch (IOException e) {
-      log.error("ERROR WARNING!! Could potentially flood splunk:{}",e);
-    } catch(Exception e){
-      log.error("ERROR WARNING!! Could potentially flood splunk:{}",e);
-    }
-
-  }
   public SplunkJmxAttributeChangeMonitor() {
-    loadExcludedProperties();
+      
   }
 
   public int getExecutorPoolSize() {

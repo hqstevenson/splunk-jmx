@@ -27,10 +27,10 @@ import static org.junit.Assert.assertTrue;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.stub.EventCollectorClientStub;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
 
 import javax.management.ObjectName;
 
@@ -38,6 +38,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class SplunkJmxAttributeChangeMonitorConfigurationTest {
+
   SplunkJmxAttributeChangeMonitor instance;
 
   String[] rawInitialObjectNameStringArray = new String[]{"java.lang:type=GarbageCollector,name=*"};
@@ -73,7 +74,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
   @Before
   public void setUp() throws Exception {
     instance = new SplunkJmxAttributeChangeMonitor();
-
     // Generate the initial ObjectName set
     for (String rawInitialObjectNameString : rawInitialObjectNameStringArray) {
       ObjectName tmpObject = new ObjectName(rawInitialObjectNameString);
