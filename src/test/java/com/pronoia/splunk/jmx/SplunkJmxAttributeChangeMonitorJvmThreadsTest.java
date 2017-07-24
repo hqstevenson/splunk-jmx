@@ -25,6 +25,9 @@ import com.pronoia.splunk.stub.EventCollectorClientStub;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class SplunkJmxAttributeChangeMonitorJvmThreadsTest {
   SplunkJmxAttributeChangeMonitor instance;
 
