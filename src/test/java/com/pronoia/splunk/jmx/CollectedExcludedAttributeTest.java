@@ -1,59 +1,73 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.pronoia.splunk.jmx;
 
-import org.junit.Test;
-
-import javax.management.ObjectName;
 import java.util.Set;
 import java.util.TreeSet;
 
-import static org.junit.Assert.assertNotNull;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Created by ark on 7/13/17.
- */
 public class CollectedExcludedAttributeTest {
+  Logger log = LoggerFactory.getLogger(this.getClass());
 
-    Set<String> observedAttributes = new TreeSet<>();
-    Set<String> excludedObservedAttributes = new TreeSet<>();
-    Set<String> collectedAttributes = new TreeSet<>();
+  Set<String> observedAttributes = new TreeSet<>();
+  Set<String> excludedObservedAttributes = new TreeSet<>();
+  Set<String> collectedAttributes = new TreeSet<>();
 
-    public boolean canAddToObservedAttributes(String attributeName){
-        boolean canAdd=true;
-        if(excludedObservedAttributes.contains(attributeName)){
-            canAdd=false;
-        }
-        if(collectedAttributes.contains(attributeName)){
-            canAdd=true;
-        }
-        return canAdd;
+  public boolean canAddToObservedAttributes(String attributeName) {
+    boolean canAdd = true;
+    if (excludedObservedAttributes.contains(attributeName)) {
+      canAdd = false;
+    }
+    if (collectedAttributes.contains(attributeName)) {
+      canAdd = true;
+    }
+    return canAdd;
+  }
+
+  @Test
+  public void testData() throws Exception {
+    final String[] testValues = new String[] {"String 0", "String 1", "String 2", "String 3", "String 4"};
+
+    excludedObservedAttributes.add(testValues[1]);
+    excludedObservedAttributes.add(testValues[3]);
+    collectedAttributes.add(testValues[1]);
+    collectedAttributes.add(testValues[2]);
+
+    if (canAddToObservedAttributes(testValues[1])) {
+      observedAttributes.add(testValues[1]);
     }
 
-    @Test
-    public void testData() throws Exception {
-
-
-        excludedObservedAttributes.add("String 1");
-        excludedObservedAttributes.add("String 3");
-        collectedAttributes.add("String 1");
-        collectedAttributes.add("String 2");
-
-        if(canAddToObservedAttributes("String 1")){
-            observedAttributes.add("String 1");
-        }
-
-        if(canAddToObservedAttributes("String 2")){
-            observedAttributes.add("String 2");
-        }
-
-        if(canAddToObservedAttributes("String 3")){
-            observedAttributes.add("String 3");
-        }
-
-        if(canAddToObservedAttributes("String 4")){
-            observedAttributes.add("String 4");
-        }
-        observedAttributes.forEach(attrName->System.out.println(attrName));
-
-
+    if (canAddToObservedAttributes(testValues[2])) {
+      observedAttributes.add(testValues[2]);
     }
+
+    if (canAddToObservedAttributes(testValues[3])) {
+      observedAttributes.add(testValues[3]);
+    }
+
+    if (canAddToObservedAttributes(testValues[4])) {
+      observedAttributes.add(testValues[4]);
+    }
+
+    log.info("Final observedAttributes Set: {}", observedAttributes);
+  }
+
 }

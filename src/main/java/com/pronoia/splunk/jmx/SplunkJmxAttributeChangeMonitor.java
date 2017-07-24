@@ -20,11 +20,14 @@ package com.pronoia.splunk.jmx;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jmx.eventcollector.builder.AttributeListEventBuilder;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
 import java.lang.management.ManagementFactory;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -74,10 +77,6 @@ public class SplunkJmxAttributeChangeMonitor {
 
   private Map<String, ScheduledFuture<?>> taskMap;
 
-  public SplunkJmxAttributeChangeMonitor() {
-      
-  }
-
   public int getExecutorPoolSize() {
     return executorPoolSize;
   }
@@ -102,7 +101,7 @@ public class SplunkJmxAttributeChangeMonitor {
 
     for (String objectName : objectNames) {
       try {
-          observedObjects.add(new ObjectName(objectName));
+        observedObjects.add(new ObjectName(objectName));
       } catch (MalformedObjectNameException malformedObjectNameEx) {
         log.warn(String.format("Ignoring invalid object name: %s", objectName), malformedObjectNameEx);
       }
@@ -123,22 +122,6 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     addObservedObjects(objectNames);
-  }
-
-  /**
-   * Removes all objects from the set of observed objects, and then adds the
-   * specified objects.
-   *
-   * @param objects The objects to observe.
-   */
-  public synchronized void setObservedObjects(ObjectName... objects) {
-    if (observedObjects == null) {
-      observedObjects = new TreeSet<>();
-    } else {
-      observedObjects.clear();
-    }
-
-    addObservedObjects(objects);
   }
 
   /**
@@ -244,6 +227,22 @@ public class SplunkJmxAttributeChangeMonitor {
   }
 
   /**
+   * Removes all objects from the set of observed objects, and then adds the
+   * specified objects.
+   *
+   * @param objects The objects to observe.
+   */
+  public synchronized void setObservedObjects(ObjectName... objects) {
+    if (observedObjects == null) {
+      observedObjects = new TreeSet<>();
+    } else {
+      observedObjects.clear();
+    }
+
+    addObservedObjects(objects);
+  }
+
+  /**
    * Returns an array containing the objects being observed.
    *
    * @return The objects being observed.
@@ -280,28 +279,6 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param attributes The attributes to observe.
    */
-  public void setObservedAttributes(List<String> attributes) {
-    if (observedAttributes == null) {
-      observedAttributes = new TreeSet<>();
-    } else {
-      observedAttributes.clear();
-    }
-    for(String attributeName:attributes) {
-      if(canAddToObservedAttributes(attributeName)) {
-        observedAttributes.add(attributeName);
-      }else{
-        log.info("excluding observed attribute:{}",attributeName);
-      }
-    }
-
-  }
-
-  /**
-   * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
-   * to null), and will monitor all attributes.
-   *
-   * @param attributes The attributes to observe.
-   */
   public void setObservedAttributes(String... attributes) {
     if (observedAttributes == null) {
       observedAttributes = new TreeSet<>();
@@ -318,6 +295,29 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param attributes The attributes to observe.
    */
+  public void setObservedAttributes(List<String> attributes) {
+    if (observedAttributes == null) {
+      observedAttributes = new TreeSet<>();
+    } else {
+      observedAttributes.clear();
+    }
+    for (String attributeName : attributes) {
+      if (canAddToObservedAttributes(attributeName)) {
+        observedAttributes.add(attributeName);
+        log.trace("adding observed attribute: '{}'", attributeName);
+      } else {
+        log.debug("excluding observed attribute: '{}'", attributeName);
+      }
+    }
+
+  }
+
+  /**
+   * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+   * to null), and will monitor all attributes.
+   *
+   * @param attributes The attributes to observe.
+   */
   public void addObservedAttributes(String... attributes) {
     if (observedAttributes == null) {
       observedAttributes = new TreeSet<>();
@@ -325,11 +325,12 @@ public class SplunkJmxAttributeChangeMonitor {
 
     if (attributes != null) {
       for (String attributeName : attributes) {
-          if(canAddToObservedAttributes(attributeName)){
-            observedAttributes.add(attributeName);
-          }else{
-            log.info("excluding observed attribute:{}",attributeName);
-          }
+        if (canAddToObservedAttributes(attributeName)) {
+          observedAttributes.add(attributeName);
+          log.trace("adding observed attribute: '{}'", attributeName);
+        } else {
+          log.debug("excluding observed attribute: '{}'", attributeName);
+        }
       }
     }
   }
@@ -356,22 +357,6 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param attributes The attributes to observe.
    */
-  public void setCollectedAttributes(String... attributes) {
-    if (collectedAttributes == null) {
-      collectedAttributes = new TreeSet<>();
-    } else {
-      collectedAttributes.clear();
-    }
-
-    addCollectedAttributes(attributes);
-  }
-
-  /**
-   * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
-   * to null), and will monitor all attributes.
-   *
-   * @param attributes The attributes to observe.
-   */
   public void setCollectedAttributes(List<String> attributes) {
     if (collectedAttributes == null) {
       collectedAttributes = new TreeSet<>();
@@ -380,6 +365,22 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     collectedAttributes.addAll(attributes);
+  }
+
+  /**
+   * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+   * to null), and will monitor all attributes.
+   *
+   * @param attributes The attributes to observe.
+   */
+  public void setCollectedAttributes(String... attributes) {
+    if (collectedAttributes == null) {
+      collectedAttributes = new TreeSet<>();
+    } else {
+      collectedAttributes.clear();
+    }
+
+    addCollectedAttributes(attributes);
   }
 
   /**
@@ -544,13 +545,13 @@ public class SplunkJmxAttributeChangeMonitor {
     to an observed if its not listed in the excluded set. The attribute can be added to the observed list if its listed
     in the excluded attributes set and listed in the containedAttributes set.
     */
-  private boolean canAddToObservedAttributes(String attributeName){
-    boolean canAdd=true;
-    if(excludedObservedAttributes.contains(attributeName)){
-      canAdd=false;
+  private boolean canAddToObservedAttributes(String attributeName) {
+    boolean canAdd = true;
+    if (excludedObservedAttributes.contains(attributeName)) {
+      canAdd = false;
     }
-    if(collectedAttributes.contains(attributeName)){
-      canAdd=true;
+    if (collectedAttributes.contains(attributeName)) {
+      canAdd = true;
     }
     return canAdd;
   }

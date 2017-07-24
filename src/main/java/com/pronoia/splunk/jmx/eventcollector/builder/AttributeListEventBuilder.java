@@ -22,7 +22,10 @@ import static com.pronoia.splunk.jmx.eventcollector.builder.JmxEventConstants.CO
 
 import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;

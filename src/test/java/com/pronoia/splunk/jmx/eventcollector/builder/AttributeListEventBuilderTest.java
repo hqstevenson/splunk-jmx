@@ -1,7 +1,7 @@
 /**
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
- * this work for putitional information regarding copyright ownership.
+ * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -17,26 +17,19 @@
 
 package com.pronoia.splunk.jmx.eventcollector.builder;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.ObjectName;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.json.simple.JSONObject;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.management.ObjectName;
+
+import org.junit.Before;
+import org.junit.Test;
+
 public class AttributeListEventBuilderTest {
   AttributeListEventBuilder instance;
-  //AttributeList eventBody;
   Map eventBody;
 
   @Before

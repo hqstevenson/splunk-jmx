@@ -27,10 +27,10 @@ import static org.junit.Assert.assertTrue;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.stub.EventCollectorClientStub;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 import javax.management.ObjectName;
 
