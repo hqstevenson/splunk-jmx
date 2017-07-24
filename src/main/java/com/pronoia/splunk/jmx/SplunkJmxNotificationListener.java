@@ -152,6 +152,62 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     this.includeEmptyLists = false;
   }
 
+  public boolean isIncludeEmptyAttrs() {
+    return includeEmptyAttrs;
+  }
+
+  public void setIncludeEmptyAttrs(boolean includeEmptyAttrs) {
+    this.includeEmptyAttrs = includeEmptyAttrs;
+  }
+
+  public boolean isIncludeEmptyLists() {
+    return includeEmptyLists;
+  }
+
+  public void setIncludeEmptyLists(boolean includeEmptyLists) {
+    this.includeEmptyLists = includeEmptyLists;
+  }
+
+  public boolean isIncludeNotificationMessage() {
+    return eventBuilder.isIncludeNotificationMessage();
+  }
+
+  public void setIncludeNotificationMessage(boolean includeNotificationMessage) {
+    eventBuilder.setIncludeNotificationMessage(includeNotificationMessage);
+  }
+
+  public boolean isIncludeNotificationSequenceNumber() {
+    return eventBuilder.isIncludeNotificationSequenceNumber();
+  }
+
+  public void setIncludeNotificationSequenceNumber(boolean includeNotificationSequenceNumber) {
+    eventBuilder.setIncludeNotificationSequenceNumber(includeNotificationSequenceNumber);
+  }
+
+  public boolean isIncludeNotificationSource() {
+    return eventBuilder.isIncludeNotificationSource();
+  }
+
+  public void setIncludeNotificationSource(boolean includeNotificationSource) {
+    eventBuilder.setIncludeNotificationSource(includeNotificationSource);
+  }
+
+  public boolean isIncludeNotificationType() {
+    return eventBuilder.isIncludeNotificationType();
+  }
+
+  public void setIncludeNotificationType(boolean includeNotificationType) {
+    eventBuilder.setIncludeNotificationType(includeNotificationType);
+  }
+
+  public boolean isIncludeUserData() {
+    return eventBuilder.isIncludeUserData();
+  }
+
+  public void setIncludeUserData(boolean includeUserData) {
+    eventBuilder.setIncludeUserData(includeUserData);
+  }
+
   public String getSplunkHost() {
     return eventBuilder.getHost();
   }

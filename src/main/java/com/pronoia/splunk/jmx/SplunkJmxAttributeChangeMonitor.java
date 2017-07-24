@@ -21,6 +21,7 @@ import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jmx.eventcollector.builder.AttributeListEventBuilder;
 
 import java.lang.management.ManagementFactory;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedList;
@@ -660,16 +661,30 @@ public class SplunkJmxAttributeChangeMonitor {
           String objectNameString = objectName.getCanonicalName();
           String[] queriedAttributeNameArray;
           if (cachedAttributeArray != null) {
+            log.info("Using cachedAttributeArray: {}", Arrays.toString(cachedAttributeArray));
             queriedAttributeNameArray = cachedAttributeArray;
           } else {
             // Attributes were not specified - look at all of them
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
             MBeanAttributeInfo[] attributeInfoArray = mbeanInfo.getAttributes();
-            queriedAttributeNameArray = new String[attributeInfoArray.length];
-            for (int i = 0; i < attributeInfoArray.length; ++i) {
-              String attributeName = attributeInfoArray[i].getName();
-              queriedAttributeNameArray[i] = attributeName;
+            List<String> queriedAttributeNameList = new LinkedList<>();
+
+            for (MBeanAttributeInfo attributeInfo : attributeInfoArray) {
+              String attributeName = attributeInfo.getName();
+              if (excludedObservedAttributes != null && excludedObservedAttributes.contains(attributeName)) {
+                if (collectedAttributes != null && collectedAttributes.contains(attributeName)) {
+                  // Keep the collected value if specified
+                  queriedAttributeNameList.add(attributeName);
+                }
+              } else {
+                queriedAttributeNameList.add(attributeName);
+              }
             }
+
+            queriedAttributeNameArray = new String[queriedAttributeNameList.size()];
+            queriedAttributeNameArray = queriedAttributeNameList.toArray(queriedAttributeNameArray);
+
+            log.info("Using queriedAttributeNameArray: {}", Arrays.toString(queriedAttributeNameArray));
           }
 
           log.debug("Retrieving Attributes for '{}'", objectNameString);
@@ -690,7 +705,13 @@ public class SplunkJmxAttributeChangeMonitor {
               monitoredAttributeNames = observedAttributes;
             } else {
               monitoredAttributeNames = attributeMap.keySet();
+              if (excludedObservedAttributes != null && !excludedObservedAttributes.isEmpty()){
+                log.info("Excluding attributes: {}", excludedObservedAttributes);
+                monitoredAttributeNames.removeAll(excludedObservedAttributes);
+              }
             }
+
+            log.info("Monitored attribute set: {}", monitoredAttributeNames);
 
             LastAttributeInfo lastAttributeInfo;
             if (lastAttributes.containsKey(objectNameString)) {

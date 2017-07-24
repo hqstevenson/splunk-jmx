@@ -24,7 +24,6 @@ import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConst
 import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConstants.NOTIFICATION_SOURCE_KEY;
 import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConstants.NOTIFICATION_TYPE_KEY;
 import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConstants.NOTIFICATION_USER_DATA_KEY;
-import static com.pronoia.splunk.jmx.eventcollector.builder.util.OpenTypeJSONUtils.addCompositeData;
 
 import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
 import com.pronoia.splunk.jmx.eventcollector.builder.util.OpenTypeJSONUtils;
@@ -40,6 +39,52 @@ import org.json.simple.JSONObject;
 
 public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Notification> {
   final String containerName = System.getProperty("karaf.name");
+
+  boolean includeNotificationMessage = false;
+  boolean includeNotificationSequenceNumber = false;
+  boolean includeNotificationSource = false;
+  boolean includeNotificationType = false;
+  boolean includeUserData = true;
+
+  public boolean isIncludeNotificationMessage() {
+    return includeNotificationMessage;
+  }
+
+  public void setIncludeNotificationMessage(boolean includeNotificationMessage) {
+    this.includeNotificationMessage = includeNotificationMessage;
+  }
+
+  public boolean isIncludeNotificationSequenceNumber() {
+    return includeNotificationSequenceNumber;
+  }
+
+  public void setIncludeNotificationSequenceNumber(boolean includeNotificationSequenceNumber) {
+    this.includeNotificationSequenceNumber = includeNotificationSequenceNumber;
+  }
+
+  public boolean isIncludeNotificationSource() {
+    return includeNotificationSource;
+  }
+
+  public void setIncludeNotificationSource(boolean includeNotificationSource) {
+    this.includeNotificationSource = includeNotificationSource;
+  }
+
+  public boolean isIncludeNotificationType() {
+    return includeNotificationType;
+  }
+
+  public void setIncludeNotificationType(boolean includeNotificationType) {
+    this.includeNotificationType = includeNotificationType;
+  }
+
+  public boolean isIncludeUserData() {
+    return includeUserData;
+  }
+
+  public void setIncludeUserData(boolean includeUserData) {
+    this.includeUserData = includeUserData;
+  }
 
   @Override
   public void setEvent(Notification eventBody) {
@@ -57,34 +102,43 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
   protected void serializeBody(Map<String, Object> eventObject) {
     Map<String, Object> notificationEvent = new HashMap<>();
 
-    notificationEvent.put(NOTIFICATION_TYPE_KEY, getEvent().getType());
-    notificationEvent.put(NOTIFICATION_MESSAGE_KEY, getEvent().getMessage());
-    notificationEvent.put(NOTIFICATION_SEQUENCE_NUMBER_KEY, getEvent().getSequenceNumber());
-    notificationEvent.put(NOTIFICATION_SOURCE_KEY, getEvent().getSource().toString());
+    if (includeNotificationType) {
+      notificationEvent.put(NOTIFICATION_TYPE_KEY, getEvent().getType());
+    }
+
+    if (includeNotificationMessage) {
+      notificationEvent.put(NOTIFICATION_MESSAGE_KEY, getEvent().getMessage());
+    }
+
+    if (includeNotificationSequenceNumber) {
+      notificationEvent.put(NOTIFICATION_SEQUENCE_NUMBER_KEY, getEvent().getSequenceNumber());
+    }
+
+    if (includeNotificationSource) {
+      notificationEvent.put(NOTIFICATION_SOURCE_KEY, getEvent().getSource().toString());
+    }
+
     if (containerName != null && !containerName.isEmpty()) {
       notificationEvent.put(CONTAINER_KEY, containerName);
     }
 
-
-    /*
-    */
-    Object userData = getEvent().getUserData();
-    if (userData != null) {
-
-      if (userData instanceof CompositeData) {
-        log.trace("Processing Composite Data for 'userData'");
-        addCompositeData(notificationEvent, NOTIFICATION_USER_DATA_KEY, (CompositeData) userData);
-      } else if (userData instanceof TabularData) {
-        log.trace("Processing Tabular Data for 'userData'");
-        Map<String, Object> tabularData = OpenTypeJSONUtils.createTabularDataJSON((TabularData) userData);
-        notificationEvent.put(NOTIFICATION_USER_DATA_KEY, tabularData);
-      } else {
-        log.debug("Processing {} for {}", userData.getClass().getName(), "userData");
-        notificationEvent.put(NOTIFICATION_USER_DATA_KEY, userData.toString());
+    if (includeUserData) {
+      Object userData = getEvent().getUserData();
+      if (userData != null) {
+        if (userData instanceof CompositeData) {
+          log.trace("Processing Composite Data for 'userData'");
+          OpenTypeJSONUtils.addCompositeData(notificationEvent, (CompositeData) userData);
+        } else if (userData instanceof TabularData) {
+          log.trace("Processing Tabular Data for 'userData'");
+          OpenTypeJSONUtils.addTabularData(notificationEvent, (TabularData) userData);
+        } else {
+          log.debug("Processing {} for {}", userData.getClass().getName(), "userData");
+          notificationEvent.put(NOTIFICATION_USER_DATA_KEY, userData.toString());
+        }
       }
-    }
 
-    eventObject.put(EVENT_BODY_KEY, notificationEvent);
+      eventObject.put(EVENT_BODY_KEY, notificationEvent);
+    }
   }
 
 }

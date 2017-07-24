@@ -103,6 +103,9 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
         } else {
           log.warn("Excluding attribute {} with null value", attributeName);
         }
+      } else if (attributeValue instanceof ObjectName) {
+        ObjectName objectName = (ObjectName) attributeValue;
+        eventBodyObject.put(attributeName, objectName.getCanonicalName());
       } else if (attributeValue instanceof ObjectName[]) {
         ObjectName[] objectNames = (ObjectName[]) attributeValue;
         if (objectNames.length > 0) {
