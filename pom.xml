@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jmx</artifactId>
     <packaging>bundle</packaging>
-    <version>0.1.4-SNAPSHOT</version>
+    <version>0.1.4</version>
 
     <name>Splunk JMX Support Classes</name>
 
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.pronoia.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>0.1.4-SNAPSHOT</version>
+            <version>0.1.4</version>
         </dependency>
 
         <!-- Test Dependencies -->
@@ -114,18 +114,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <repository>
-            <id>libs-ucla-dev</id>
-            <name>UCLA Development JARs</name>
-            <url>https://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-local</url>
-        </repository>
-        <snapshotRepository>
-            <id>libs-ucla-snapshot</id>
-            <name>UCLA Development SNAPSHOT JARs</name>
-            <url>https://esbartifactory.medctr.ucla.edu:6100/artifactory/libs-ext-snapshot</url>
-        </snapshotRepository>
-    </distributionManagement>
-
 </project>
