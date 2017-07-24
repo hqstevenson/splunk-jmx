@@ -26,8 +26,11 @@ import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConst
 import static com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationConstants.NOTIFICATION_USER_DATA_KEY;
 import static com.pronoia.splunk.jmx.eventcollector.builder.util.OpenTypeJSONUtils.addCompositeData;
 
-import com.pronoia.splunk.eventcollector.builder.EventBuilderSupport;
+import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
 import com.pronoia.splunk.jmx.eventcollector.builder.util.OpenTypeJSONUtils;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.management.Notification;
 import javax.management.openmbean.CompositeData;
@@ -35,7 +38,7 @@ import javax.management.openmbean.TabularData;
 
 import org.json.simple.JSONObject;
 
-public class JmxNotificationEventBuilder extends EventBuilderSupport<Notification> {
+public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Notification> {
   final String containerName = System.getProperty("karaf.name");
 
   @Override
@@ -50,8 +53,9 @@ public class JmxNotificationEventBuilder extends EventBuilderSupport<Notificatio
     }
   }
 
-  protected void serializeBody(JSONObject eventObject) {
-    JSONObject notificationEvent = new JSONObject();
+  @Override
+  protected void serializeBody(Map<String, Object> eventObject) {
+    Map<String, Object> notificationEvent = new HashMap<>();
 
     notificationEvent.put(NOTIFICATION_TYPE_KEY, getEvent().getType());
     notificationEvent.put(NOTIFICATION_MESSAGE_KEY, getEvent().getMessage());
@@ -72,7 +76,7 @@ public class JmxNotificationEventBuilder extends EventBuilderSupport<Notificatio
         addCompositeData(notificationEvent, NOTIFICATION_USER_DATA_KEY, (CompositeData) userData);
       } else if (userData instanceof TabularData) {
         log.trace("Processing Tabular Data for 'userData'");
-        JSONObject tabularData = OpenTypeJSONUtils.createTabularDataJSON((TabularData) userData);
+        Map<String, Object> tabularData = OpenTypeJSONUtils.createTabularDataJSON((TabularData) userData);
         notificationEvent.put(NOTIFICATION_USER_DATA_KEY, tabularData);
       } else {
         log.debug("Processing {} for {}", userData.getClass().getName(), "userData");

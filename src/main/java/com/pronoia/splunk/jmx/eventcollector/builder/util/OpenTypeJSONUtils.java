@@ -18,14 +18,15 @@
 package com.pronoia.splunk.jmx.eventcollector.builder.util;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.SimpleType;
 import javax.management.openmbean.TabularData;
 import javax.management.openmbean.TabularType;
 
-import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +50,8 @@ public class OpenTypeJSONUtils {
    *
    * @return a JSONObject with the key and SimpleType value
    */
-  public static JSONObject createSimpleTypeJSON(String key, SimpleType simpleType) {
-    JSONObject jsonObject = new JSONObject();
+  public static Map<String, Object> createSimpleTypeJSON(String key, SimpleType simpleType) {
+    Map<String, Object> jsonObject = new HashMap<>();
     addSimpleType(jsonObject, key, simpleType);
     return jsonObject;
   }
@@ -58,15 +59,15 @@ public class OpenTypeJSONUtils {
   /**
    * Add a JSON representation of a JMX OpenMBean SimpleType instance to an existing JSON Object.
    *
-   * @param jsonObject the target JSONObject
+   * @param targetMap the target Map
    * @param key        the key to use for the value of the SimpleType
    * @param simpleType the SimpleType
    */
-  public static void addSimpleType(JSONObject jsonObject, String key, SimpleType simpleType) {
-    if (jsonObject == null) {
-      throw new NullPointerException("The JSONObject argument cannot be null");
+  public static void addSimpleType(Map<String, Object> targetMap, String key, SimpleType simpleType) {
+    if (targetMap == null) {
+      throw new NullPointerException("The target Map argument cannot be null");
     }
-    jsonObject.put(key, simpleType.toString());
+    targetMap.put(key, simpleType.toString());
   }
 
   /**
@@ -76,8 +77,8 @@ public class OpenTypeJSONUtils {
    *
    * @return a JSONObject with the key and CompositeData value
    */
-  public static JSONObject createCompositeDataJSON(CompositeData compositeData) {
-    JSONObject jsonObject = new JSONObject();
+  public static Map<String, Object> createCompositeDataJSON(CompositeData compositeData) {
+    Map<String, Object> jsonObject = new HashMap<>();
     addCompositeData(jsonObject, compositeData);
     return jsonObject;
   }
@@ -90,8 +91,8 @@ public class OpenTypeJSONUtils {
    *
    * @return a JSONObject with the key and CompositeData value
    */
-  public static JSONObject createCompositeDataJSON(String key, CompositeData compositeData) {
-    JSONObject jsonObject = new JSONObject();
+  public static Map<String, Object> createCompositeDataJSON(String key, CompositeData compositeData) {
+    Map<String, Object> jsonObject = new HashMap<>();
     addCompositeData(jsonObject, key, compositeData);
     return jsonObject;
   }
@@ -102,7 +103,7 @@ public class OpenTypeJSONUtils {
    * @param jsonObject    the target JSONObject
    * @param compositeData the CompositeData
    */
-  public static void addCompositeData(JSONObject jsonObject, CompositeData compositeData) {
+  public static void addCompositeData(Map<String, Object> jsonObject, CompositeData compositeData) {
     if (jsonObject == null) {
       throw new NullPointerException("The JSONObject argument cannot be null");
     }
@@ -131,7 +132,7 @@ public class OpenTypeJSONUtils {
    * @param key           the key to use for the value of the SimpleType
    * @param compositeData the CompositeData
    */
-  public static void addCompositeData(JSONObject jsonObject, String key, CompositeData compositeData) {
+  public static void addCompositeData(Map<String, Object> jsonObject, String key, CompositeData compositeData) {
     if (jsonObject == null) {
       throw new NullPointerException("The JSONObject argument cannot be null");
     }
@@ -145,8 +146,8 @@ public class OpenTypeJSONUtils {
    *
    * @return a JSONObject with the TabularData value
    */
-  public static JSONObject createTabularDataJSON(TabularData tabularData) {
-    JSONObject jsonObject = new JSONObject();
+  public static Map<String, Object> createTabularDataJSON(TabularData tabularData) {
+    Map<String, Object> jsonObject = new HashMap<>();
     addTabularData(jsonObject, tabularData);
     return jsonObject;
   }
@@ -157,7 +158,7 @@ public class OpenTypeJSONUtils {
    * @param jsonObject  the target JSONObject
    * @param tabularData the TabularData
    */
-  public static void addTabularData(JSONObject jsonObject, TabularData tabularData) {
+  public static void addTabularData(Map<String, Object> jsonObject, TabularData tabularData) {
     if (jsonObject == null) {
       throw new NullPointerException("The JSONObject argument cannot be null");
     }
@@ -189,7 +190,7 @@ public class OpenTypeJSONUtils {
 
       // Build the JSON Object Value
       LOG.trace("Building JSON Value for {} ({})", counter, jsonKey);
-      JSONObject compositeDataObject = new JSONObject();
+      Map<String, Object> compositeDataObject = new HashMap<>();
       for (String key : tabularDataRowValue.getCompositeType().keySet()) {
         if (indexNames.contains(key)) {
           LOG.trace("Found index key - skipping: {}", key);

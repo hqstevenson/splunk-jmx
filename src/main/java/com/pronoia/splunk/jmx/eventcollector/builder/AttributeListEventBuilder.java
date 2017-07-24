@@ -35,7 +35,7 @@ import javax.management.openmbean.CompositeDataSupport;
 /**
  * Splunk Event Builder for JMX AttributeLists.
  */
-public class AttributeListEventBuilder extends JacksonEventBuilderSupport<AttributeList>{
+public class AttributeListEventBuilder extends JacksonEventBuilderSupport<AttributeList> {
   final String containerName = System.getProperty("karaf.name");
 
   boolean includeEmptyAttributes = true;
