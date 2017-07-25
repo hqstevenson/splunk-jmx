@@ -333,7 +333,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
       splunkClient.sendEvent(eventBody);
       log.debug("Sent Event");
     } catch (EventDeliveryException deliveryEx) {
-      log.error(String.format("Failed to send payload: {}", eventBody), deliveryEx);
+      log.error(String.format("Failed to send event: {}", deliveryEx.getEvent()), deliveryEx);
     }
   }
 

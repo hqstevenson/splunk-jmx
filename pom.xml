@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jmx</artifactId>
     <packaging>bundle</packaging>
-    <version>0.1.4</version>
+    <version>0.1.5</version>
 
     <name>Splunk JMX Support Classes</name>
 
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>com.pronoia.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>0.1.4</version>
+            <version>0.1.5</version>
         </dependency>
 
         <!-- Test Dependencies -->

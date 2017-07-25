@@ -18,29 +18,17 @@
 package com.pronoia.splunk.jmx;
 
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
-import com.pronoia.splunk.jmx.eventcollector.builder.AttributeListEventBuilder;
+import com.pronoia.splunk.jmx.internal.AttributeChangeMonitorRunnable;
 
-import java.lang.management.ManagementFactory;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import javax.management.Attribute;
-import javax.management.AttributeList;
-import javax.management.InstanceNotFoundException;
-import javax.management.MBeanAttributeInfo;
-import javax.management.MBeanInfo;
-import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -68,15 +56,13 @@ public class SplunkJmxAttributeChangeMonitor {
   Set<String> excludedObservedAttributes = new TreeSet<>();
   Set<String> collectedAttributes = new TreeSet<>();
 
+  String[] cachedAttributeArray;
+
   EventCollectorClient splunkClient;
   String splunkHost;
   String splunkIndex;
   String splunkEventSource;
   String splunkEventSourcetype = "jmx-attributes";
-
-  private String[] cachedAttributeArray;
-
-  private Map<String, ScheduledFuture<?>> taskMap;
 
   public int getExecutorPoolSize() {
     return executorPoolSize;
@@ -267,9 +253,15 @@ public class SplunkJmxAttributeChangeMonitor {
   public synchronized List<String> getObservedAttributes() {
     List<String> answer = new LinkedList<>();
 
-    for (String attribute : observedAttributes) {
-      answer.add(attribute);
-    }
+    answer.addAll(observedAttributes);
+
+    return answer;
+  }
+
+  public synchronized Set<String> getObservedAttributeSet() {
+    Set<String> answer = new TreeSet<>();
+
+    answer.addAll(observedAttributes);
 
     return answer;
   }
@@ -302,15 +294,21 @@ public class SplunkJmxAttributeChangeMonitor {
     } else {
       observedAttributes.clear();
     }
-    for (String attributeName : attributes) {
-      if (canAddToObservedAttributes(attributeName)) {
-        observedAttributes.add(attributeName);
-        log.trace("adding observed attribute: '{}'", attributeName);
-      } else {
-        log.debug("excluding observed attribute: '{}'", attributeName);
-      }
-    }
 
+    addObservedAttributes(attributes);
+  }
+
+  /**
+   * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+   * to null), and will monitor all attributes.
+   *
+   * @param attributes The attributes to observe.
+   */
+  public void addObservedAttributes(List<String> attributes) {
+    if (observedAttributes == null) {
+      observedAttributes = new TreeSet<>();
+    }
+    observedAttributes.addAll(attributes);
   }
 
   /**
@@ -326,12 +324,7 @@ public class SplunkJmxAttributeChangeMonitor {
 
     if (attributes != null) {
       for (String attributeName : attributes) {
-        if (canAddToObservedAttributes(attributeName)) {
-          observedAttributes.add(attributeName);
-          log.trace("adding observed attribute: '{}'", attributeName);
-        } else {
-          log.debug("excluding observed attribute: '{}'", attributeName);
-        }
+        observedAttributes.add(attributeName);
       }
     }
   }
@@ -344,6 +337,16 @@ public class SplunkJmxAttributeChangeMonitor {
    */
   public synchronized List<String> getCollectedAttributes() {
     List<String> answer = new LinkedList<>();
+
+    for (String attribute : collectedAttributes) {
+      answer.add(attribute);
+    }
+
+    return answer;
+  }
+
+  public synchronized Set<String> getCollectedAttributeSet() {
+    Set<String> answer = new TreeSet<>();
 
     for (String attribute : collectedAttributes) {
       answer.add(attribute);
@@ -411,14 +414,14 @@ public class SplunkJmxAttributeChangeMonitor {
   public synchronized List<String> getObservedAndCollectedAttributes() {
     List<String> answer = new LinkedList<>();
 
-    for (String observedAttribute : observedAttributes) {
-      answer.add(observedAttribute);
-    }
-    for (String collectedAttribute : collectedAttributes) {
-      answer.add(collectedAttribute);
-    }
+    answer.addAll(observedAttributes);
+    answer.addAll(collectedAttributes);
 
     return answer;
+  }
+
+  public String[] getCachedAttributeArray() {
+    return cachedAttributeArray;
   }
 
   public long getGranularityPeriod() {
@@ -533,28 +536,33 @@ public class SplunkJmxAttributeChangeMonitor {
     this.splunkClient = splunkClient;
   }
 
-  public Set<String> getExcludedObservedAttributes() {
-    return excludedObservedAttributes;
+  public List<String> getExcludedObservedAttributes() {
+    List<String> answer = new LinkedList<>();
+
+    for (String attribute : excludedObservedAttributes) {
+      answer.add(attribute);
+    }
+
+    return answer;
   }
 
-  public void setExcludedObservedAttributes(Set<String> excludedObservedAttributes) {
-    this.excludedObservedAttributes = excludedObservedAttributes;
+  public Set<String> getExcludedObservedAttributeSet() {
+    Set<String> answer = new TreeSet<>();
+
+    for (String attribute : excludedObservedAttributes) {
+      answer.add(attribute);
+    }
+
+    return answer;
   }
 
-  /*
-    private method that checks to see an attribute can be added to the observed list. An attribute can be added
-    to an observed if its not listed in the excluded set. The attribute can be added to the observed list if its listed
-    in the excluded attributes set and listed in the containedAttributes set.
-    */
-  private boolean canAddToObservedAttributes(String attributeName) {
-    boolean canAdd = true;
-    if (excludedObservedAttributes.contains(attributeName)) {
-      canAdd = false;
+  public void setExcludedObservedAttributes(List<String> attributes) {
+    if (excludedObservedAttributes == null) {
+      excludedObservedAttributes = new TreeSet<>();
+    } else {
+      excludedObservedAttributes.clear();
     }
-    if (collectedAttributes.contains(attributeName)) {
-      canAdd = true;
-    }
-    return canAdd;
+    excludedObservedAttributes.addAll(attributes);
   }
 
   /**
@@ -567,24 +575,7 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     if (observedAttributes != null && !observedAttributes.isEmpty()) {
-      List<String> allAttributes = new LinkedList<>();
-
-      for (String attributeName : observedAttributes) {
-        if (attributeName == null || attributeName.isEmpty()) {
-          log.warn("Ignoring empty or null observed attribute");
-        } else {
-          allAttributes.add(attributeName);
-        }
-      }
-      if (collectedAttributes != null && !collectedAttributes.isEmpty()) {
-        for (String attributeName : collectedAttributes) {
-          if (attributeName == null || attributeName.isEmpty()) {
-            log.warn("Ignoring empty or null collected attribute");
-          } else {
-            allAttributes.add(attributeName);
-          }
-        }
-      }
+      List<String> allAttributes = getObservedAndCollectedAttributes();
 
       cachedAttributeArray = new String[allAttributes.size()];
       cachedAttributeArray = allAttributes.toArray(cachedAttributeArray);
@@ -595,13 +586,11 @@ public class SplunkJmxAttributeChangeMonitor {
     if (executor == null) {
       executor = new ScheduledThreadPoolExecutor(executorPoolSize);
     }
-    taskMap = new ConcurrentHashMap<>();
 
     for (ObjectName object : observedObjects) {
-      ScheduledFuture<?> scheduledFuture = executor.scheduleWithFixedDelay(
-          new JmxAttributeCollectorTask(object),
+      log.info("Scheduling {} for {}", AttributeChangeMonitorRunnable.class.getSimpleName(), object.getCanonicalName());
+      executor.scheduleWithFixedDelay(new AttributeChangeMonitorRunnable(this, object),
           granularityPeriod, granularityPeriod, TimeUnit.SECONDS);
-      taskMap.put(object.getCanonicalName(), scheduledFuture);
     }
   }
 
@@ -612,190 +601,8 @@ public class SplunkJmxAttributeChangeMonitor {
     if (executor != null && !executor.isShutdown() && !executor.isTerminated()) {
       log.info("Stopping {} ....", this.getClass().getName());
       executor.shutdown();
-      taskMap = null;
     }
     executor = null;
-  }
-
-  class JmxAttributeCollectorTask implements Runnable {
-    final MBeanServer mbeanServer;
-    final ObjectName queryObjectNamePattern;
-    AttributeListEventBuilder eventBuilder;
-
-    Map<String, LastAttributeInfo> lastAttributes = new HashMap<>();
-    int suppressionCount = 0;
-
-    public JmxAttributeCollectorTask(ObjectName queryObjectNamePattern) {
-      this.queryObjectNamePattern = queryObjectNamePattern;
-      mbeanServer = ManagementFactory.getPlatformMBeanServer();
-
-      eventBuilder = new AttributeListEventBuilder();
-      if (hasSplunkIndex()) {
-        eventBuilder.setIndex(splunkIndex);
-      }
-      if (hasSplunkHost()) {
-        eventBuilder.setHost(splunkHost);
-      } else {
-        eventBuilder.setHost();
-      }
-      if (hasSplunkEventSource()) {
-        eventBuilder.setSource(splunkEventSource);
-      }
-
-      if (hasSplunkEventSourcetype()) {
-        eventBuilder.setSourcetype(splunkEventSourcetype);
-      }
-    }
-
-    @Override
-    public void run() {
-      log.debug("{}.run() called", this.getClass().getSimpleName());
-      try {
-        Set<ObjectName> objectNameSet = mbeanServer.queryNames(queryObjectNamePattern, null);
-        for (ObjectName objectName : objectNameSet) {
-          eventBuilder.clearFields();
-          Hashtable<String, String> objectNameProperties = objectName.getKeyPropertyList();
-          for (String propertyName : objectNameProperties.keySet()) {
-            eventBuilder.setField(propertyName, objectNameProperties.get(propertyName));
-          }
-          String objectNameString = objectName.getCanonicalName();
-          String[] queriedAttributeNameArray;
-          if (cachedAttributeArray != null) {
-            log.info("Using cachedAttributeArray: {}", Arrays.toString(cachedAttributeArray));
-            queriedAttributeNameArray = cachedAttributeArray;
-          } else {
-            // Attributes were not specified - look at all of them
-            MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
-            MBeanAttributeInfo[] attributeInfoArray = mbeanInfo.getAttributes();
-            List<String> queriedAttributeNameList = new LinkedList<>();
-
-            for (MBeanAttributeInfo attributeInfo : attributeInfoArray) {
-              String attributeName = attributeInfo.getName();
-              if (excludedObservedAttributes != null && excludedObservedAttributes.contains(attributeName)) {
-                if (collectedAttributes != null && collectedAttributes.contains(attributeName)) {
-                  // Keep the collected value if specified
-                  queriedAttributeNameList.add(attributeName);
-                }
-              } else {
-                queriedAttributeNameList.add(attributeName);
-              }
-            }
-
-            queriedAttributeNameArray = new String[queriedAttributeNameList.size()];
-            queriedAttributeNameArray = queriedAttributeNameList.toArray(queriedAttributeNameArray);
-
-            log.info("Using queriedAttributeNameArray: {}", Arrays.toString(queriedAttributeNameArray));
-          }
-
-          log.debug("Retrieving Attributes for '{}'", objectNameString);
-          AttributeList attributeList = mbeanServer.getAttributes(objectName, queriedAttributeNameArray);
-          eventBuilder.timestamp();
-          if (attributeList == null) {
-            log.warn("MBeanServer.getAttributes( {}, {} ) returned null", objectName, queriedAttributeNameArray);
-          } else if (attributeList.isEmpty()) {
-            final String warningMessage = "MBeanServer.getAttributes( {}, {} ) returned an empty AttributeList";
-            log.warn(warningMessage, objectName, queriedAttributeNameArray);
-          } else {
-            log.debug("Building attribute Map of {} attributes for {}", attributeList.size(), objectName);
-            Map<String, Object> attributeMap = buildAttributeMap(attributeList);
-
-            log.debug("Determining monitored attribute set");
-            Set<String> monitoredAttributeNames;
-            if (observedAttributes != null && !observedAttributes.isEmpty()) {
-              monitoredAttributeNames = observedAttributes;
-            } else {
-              monitoredAttributeNames = attributeMap.keySet();
-              if (excludedObservedAttributes != null && !excludedObservedAttributes.isEmpty()){
-                log.info("Excluding attributes: {}", excludedObservedAttributes);
-                monitoredAttributeNames.removeAll(excludedObservedAttributes);
-              }
-            }
-
-            log.info("Monitored attribute set: {}", monitoredAttributeNames);
-
-            LastAttributeInfo lastAttributeInfo;
-            if (lastAttributes.containsKey(objectNameString)) {
-              log.trace("Checking for attribute change");
-              lastAttributeInfo = lastAttributes.get(objectNameString);
-              for (String attributeName : monitoredAttributeNames) {
-                if (attributeValueChanged(attributeName, lastAttributeInfo.attributeMap.get(attributeName), attributeMap.get(attributeName))) {
-                  lastAttributeInfo.attributeMap = attributeMap;
-                  suppressionCount = 0;
-                  eventBuilder.source(objectNameString).event(attributeList);
-                  splunkClient.sendEvent(eventBuilder.build());
-                  continue;
-                }
-              }
-
-              if (maxSuppressedDuplicates > 0 && ++lastAttributeInfo.suppressionCount <= maxSuppressedDuplicates) {
-                log.trace("Duplicate monitored attribute values encountered for {} - suppressed {} time(s)", objectName, lastAttributeInfo.suppressionCount);
-              } else {
-                lastAttributeInfo.attributeMap = attributeMap;
-                suppressionCount = 0;
-                eventBuilder.source(objectNameString).event(attributeList);
-                log.debug("Posting payload for existing object");
-                splunkClient.sendEvent(eventBuilder.build());
-                continue;
-              }
-            } else {
-              log.debug("First invocation - creating last attribute info and posting payload for first object");
-              lastAttributeInfo = new LastAttributeInfo();
-              lastAttributeInfo.attributeMap = attributeMap;
-              lastAttributes.put(objectNameString, lastAttributeInfo);
-              eventBuilder.source(objectNameString).event(attributeList);
-              eventBuilder.event(attributeList);
-              splunkClient.sendEvent(eventBuilder.build());
-              continue;
-            }
-
-          }
-        }
-      } catch (InstanceNotFoundException instanceNotFoundEx) {
-        log.warn("Unexpected exception in run: ", instanceNotFoundEx);
-      } catch (Throwable ex) {
-        log.error("Error collecting attribute values", ex);
-      } finally {
-        log.debug("{}.run() completed", this.getClass().getSimpleName());
-      }
-    }
-
-    Map<String, Object> buildAttributeMap(AttributeList attributeList) {
-      Map<String, Object> newAttributeMap = new HashMap<>(attributeList.size());
-      for (Object attributeObject : attributeList) {
-        Attribute attribute = (Attribute) attributeObject;
-        newAttributeMap.put(attribute.getName(), attribute.getValue());
-      }
-
-      return newAttributeMap;
-    }
-
-    boolean attributeValueChanged(String attributeName, Object oldValue, Object newValue) {
-      boolean returnValue = false;
-
-      log.trace("Comparing attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
-      if (newValue == null) {
-        if (oldValue != null) {
-          log.trace("Attribute value change detected for attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
-          returnValue = true;
-        } else {
-          log.debug("Value not present for monitored attribute {} - ignoring attribute in change monitor", attributeName);
-        }
-      } else if (!newValue.equals(oldValue)) {
-        log.trace("Attribute value change detected for attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
-        returnValue = true;
-      } else {
-        log.trace("No change detected for attribute {}: old value = {}, new value = {}", attributeName, oldValue, newValue);
-      }
-
-      log.debug("{}.attributeValueChanged {} returning {} ....", this.getClass().getName(), attributeName, returnValue);
-
-      return returnValue;
-    }
-  }
-
-  class LastAttributeInfo {
-    int suppressionCount = 0;
-    Map<String, Object> attributeMap = new HashMap<>();
   }
 
 }

@@ -42,6 +42,7 @@ public class SplunkJmxAttributeChangeMonitorJvmGCTest {
     instance.setGranularityPeriod(1);
 
     instance.start();
+    System.gc();
     Thread.sleep(1500);
     instance.stop();
 
