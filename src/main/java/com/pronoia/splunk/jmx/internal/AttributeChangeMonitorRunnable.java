@@ -7,9 +7,11 @@ import com.pronoia.splunk.jmx.eventcollector.builder.AttributeListEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -82,8 +84,11 @@ public class AttributeChangeMonitorRunnable implements Runnable {
             queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent());
         log.error(errorMessage, eventDeliveryEx);
       } catch (InstanceNotFoundException | ReflectionException | IntrospectionException jmxEx) {
-        String errorMessage = String.format("Unexpected exception in run %s[%s]", queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName());
+        String errorMessage = String.format("Unexpected %s in run %s[%s]", jmxEx.getClass().getSimpleName(), queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName());
         log.warn(errorMessage, jmxEx);
+      } catch (Throwable unexpectedEx) {
+        String errorMessage = String.format("Unexpected %s in run %s[%s]", unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName());
+        log.warn(errorMessage, unexpectedEx);
       }
     }
 
@@ -135,7 +140,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
       log.warn(warningMessage, objectName, queriedAttributeNameArray);
     } else {
       log.debug("Building attribute Map of {} attributes for {}", attributeList.size(), objectName);
-      ConcurrentMap<String, Object> attributeMap = buildAttributeMap(attributeList);
+      Map<String, Object> attributeMap = buildAttributeMap(attributeList);
 
       log.debug("Determining monitored attribute set");
       Set<String> monitoredAttributeNames;
@@ -191,8 +196,8 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     }
   }
 
-  ConcurrentMap<String, Object> buildAttributeMap(AttributeList attributeList) {
-    ConcurrentMap<String, Object> newAttributeMap = new ConcurrentHashMap<>(attributeList.size());
+  Map<String, Object> buildAttributeMap(AttributeList attributeList) {
+    Map<String, Object> newAttributeMap = new HashMap<>(attributeList.size());
     for (Object attributeObject : attributeList) {
       Attribute attribute = (Attribute) attributeObject;
       newAttributeMap.put(attribute.getName(), attribute.getValue());

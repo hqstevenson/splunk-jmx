@@ -567,9 +567,11 @@ public class SplunkJmxAttributeChangeMonitor {
    * Start the polling tasks.
    */
   public void start() {
-    log.info("Starting {} ....", this.getClass().getName());
+    log.info("Starting JMX attribute change monitor(s) for {}", observedObjects);
+
     if (splunkClient == null) {
-      throw new IllegalStateException("Splunk Client must be specified");
+      String errorMessage = String.format("Splunk Client must be specified for %s", observedObjects);
+      throw new IllegalStateException(errorMessage);
     }
 
     if (observedAttributes != null && !observedAttributes.isEmpty()) {
@@ -578,7 +580,7 @@ public class SplunkJmxAttributeChangeMonitor {
       cachedAttributeArray = new String[allAttributes.size()];
       cachedAttributeArray = allAttributes.toArray(cachedAttributeArray);
     } else {
-      log.warn("Monitored attribute set is not specified - all attributes will be monitored");
+      log.warn("Monitored attribute set is not specified for {} - all attributes will be monitored", observedObjects);
     }
 
     if (executor == null) {
