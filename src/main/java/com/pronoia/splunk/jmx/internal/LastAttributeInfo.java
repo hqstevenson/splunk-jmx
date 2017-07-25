@@ -2,8 +2,6 @@ package com.pronoia.splunk.jmx.internal;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -14,9 +12,8 @@ public class LastAttributeInfo {
 
   final String objectName;
 
-  volatile AtomicInteger suppressionCount = new AtomicInteger(0);
-
-  volatile ConcurrentMap<String, Object> attributeMap = new ConcurrentHashMap<>();
+  AtomicInteger suppressionCount = new AtomicInteger(0);
+  Map<String, Object> attributeMap = new HashMap<>();
 
   public LastAttributeInfo(String objectName) {
     this.objectName = objectName;
@@ -47,7 +44,7 @@ public class LastAttributeInfo {
     return attributeMap;
   }
 
-  public void setAttributeMap(ConcurrentMap<String, Object> attributeMap) {
+  public void setAttributeMap(Map<String, Object> attributeMap) {
     this.attributeMap = attributeMap;
     this.resetSuppressionCount();
   }

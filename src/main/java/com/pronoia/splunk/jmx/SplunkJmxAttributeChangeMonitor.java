@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -79,7 +78,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param objectNames The object names to observe.
    */
-  public synchronized void setObservedObjects(List<String> objectNames) {
+  public void setObservedObjects(List<String> objectNames) {
     if (observedObjects == null) {
       observedObjects = new TreeSet<>();
     } else {
@@ -101,7 +100,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param objectNames The object names to observe.
    */
-  public synchronized void setObservedObjects(String... objectNames) {
+  public void setObservedObjects(String... objectNames) {
     if (observedObjects == null) {
       observedObjects = new TreeSet<>();
     } else {
@@ -116,7 +115,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param objectNames The object names to observe.
    */
-  public synchronized void addObservedObjects(String... objectNames) {
+  public void addObservedObjects(String... objectNames) {
     if (observedObjects == null) {
       observedObjects = new TreeSet<>();
     }
@@ -137,7 +136,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @throws IllegalArgumentException The specified object is null.
    */
-  public synchronized void addObservedObjects(ObjectName... objects) {
+  public void addObservedObjects(ObjectName... objects) {
     if (observedObjects == null) {
       observedObjects = new TreeSet<>();
     }
@@ -153,8 +152,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param objectName The name of object to remove.
    */
-  public synchronized void removeObservedObject(String objectName) {
-    // TODO: Deal with taskMap
+  public void removeObservedObject(String objectName) {
     try {
       observedObjects.remove(new ObjectName(objectName));
     } catch (MalformedObjectNameException malformedObjectNameEx) {
@@ -167,7 +165,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param object The object to remove.
    */
-  public synchronized void removeObservedObject(ObjectName object) {
+  public void removeObservedObject(ObjectName object) {
     observedObjects.remove(object);
   }
 
@@ -178,7 +176,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return <CODE>true</CODE> if the specified object is present, <CODE>false</CODE> otherwise.
    */
-  public synchronized boolean containsObservedObject(String objectName) {
+  public boolean containsObservedObject(String objectName) {
     try {
       return observedObjects.contains(new ObjectName(objectName));
     } catch (MalformedObjectNameException malformedObjectNameEx) {
@@ -194,7 +192,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return <CODE>true</CODE> if the specified object is present, <CODE>false</CODE> otherwise.
    */
-  public synchronized boolean containsObservedObject(ObjectName object) {
+  public boolean containsObservedObject(ObjectName object) {
     return observedObjects.contains(object);
   }
 
@@ -203,7 +201,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return The objects being observed.
    */
-  public synchronized List<ObjectName> getObservedObjects() {
+  public List<ObjectName> getObservedObjects() {
     List<ObjectName> answer = new LinkedList<>();
 
     for (ObjectName objectName : observedObjects) {
@@ -219,7 +217,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @param objects The objects to observe.
    */
-  public synchronized void setObservedObjects(ObjectName... objects) {
+  public void setObservedObjects(ObjectName... objects) {
     if (observedObjects == null) {
       observedObjects = new TreeSet<>();
     } else {
@@ -234,7 +232,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return The objects being observed.
    */
-  public synchronized List<String> getObservedObjectNames() {
+  public List<String> getObservedObjectNames() {
     List<String> answer = new LinkedList<>();
 
     for (ObjectName objectName : observedObjects) {
@@ -250,7 +248,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return The attributes being observed.
    */
-  public synchronized List<String> getObservedAttributes() {
+  public List<String> getObservedAttributes() {
     List<String> answer = new LinkedList<>();
 
     answer.addAll(observedAttributes);
@@ -258,7 +256,7 @@ public class SplunkJmxAttributeChangeMonitor {
     return answer;
   }
 
-  public synchronized Set<String> getObservedAttributeSet() {
+  public Set<String> getObservedAttributeSet() {
     Set<String> answer = new TreeSet<>();
 
     answer.addAll(observedAttributes);
@@ -335,7 +333,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return The attributes being observed.
    */
-  public synchronized List<String> getCollectedAttributes() {
+  public List<String> getCollectedAttributes() {
     List<String> answer = new LinkedList<>();
 
     for (String attribute : collectedAttributes) {
@@ -345,7 +343,7 @@ public class SplunkJmxAttributeChangeMonitor {
     return answer;
   }
 
-  public synchronized Set<String> getCollectedAttributeSet() {
+  public Set<String> getCollectedAttributeSet() {
     Set<String> answer = new TreeSet<>();
 
     for (String attribute : collectedAttributes) {
@@ -411,7 +409,7 @@ public class SplunkJmxAttributeChangeMonitor {
    *
    * @return The attributes being observed.
    */
-  public synchronized List<String> getObservedAndCollectedAttributes() {
+  public List<String> getObservedAndCollectedAttributes() {
     List<String> answer = new LinkedList<>();
 
     answer.addAll(observedAttributes);

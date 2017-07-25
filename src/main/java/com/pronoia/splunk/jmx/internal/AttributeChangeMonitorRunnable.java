@@ -90,7 +90,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     log.debug("{}.run() completed", this.getClass().getSimpleName());
   }
 
-  void collectAttributes(MBeanServer mbeanServer, ObjectName objectName) throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
+  synchronized void collectAttributes(MBeanServer mbeanServer, ObjectName objectName) throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
     eventBuilder.clearFields();
     Hashtable<String, String> objectNameProperties = objectName.getKeyPropertyList();
     for (String propertyName : objectNameProperties.keySet()) {

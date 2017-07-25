@@ -35,8 +35,6 @@ import javax.management.Notification;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
-import org.json.simple.JSONObject;
-
 public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Notification> {
   final String containerName = System.getProperty("karaf.name");
 
