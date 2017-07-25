@@ -81,13 +81,20 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
     this.includeEmptyObjectNameLists = includeEmptyObjectNameLists;
   }
 
+  @Override
+  protected void serializeFields(Map<String, Object> eventObject) {
+    if (containerName != null && !containerName.isEmpty()) {
+      addField(CONTAINER_KEY, containerName);
+    }
+
+    super.serializeFields(eventObject);
+  }
+
+  @Override
   protected void serializeBody(Map eventObject) {
     log.debug("{}.serializeBody() ...", this.getClass().getName());
 
     Map<String,Object> eventBodyObject =new HashMap<>();
-    if (containerName != null && !containerName.isEmpty()) {
-      eventBodyObject.put(CONTAINER_KEY, containerName);
-    }
 
     for (Object attributeObject : this.getEvent()) {
 

@@ -97,6 +97,15 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
   }
 
   @Override
+  protected void serializeFields(Map<String, Object> eventObject) {
+    if (containerName != null && !containerName.isEmpty()) {
+      addField(CONTAINER_KEY, containerName);
+    }
+
+    super.serializeFields(eventObject);
+  }
+
+  @Override
   protected void serializeBody(Map<String, Object> eventObject) {
     Map<String, Object> notificationEvent = new HashMap<>();
 
@@ -114,10 +123,6 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
 
     if (includeNotificationSource) {
       notificationEvent.put(NOTIFICATION_SOURCE_KEY, getEvent().getSource().toString());
-    }
-
-    if (containerName != null && !containerName.isEmpty()) {
-      notificationEvent.put(CONTAINER_KEY, containerName);
     }
 
     if (includeUserData) {
