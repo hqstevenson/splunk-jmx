@@ -17,16 +17,21 @@
  -->
 <blueprint xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0">
 
-    <bean id="splunk-client" class="edu.ucla.mednet.iss.it.monitor.splunk.eventcollector.client.SimpleEventCollectorClient" init-method="initialize" destroy-method="destroy">
+    <bean id="splunk-client" class="com.pronoia.splunk.eventcollector.client.SimpleEventCollectorClient"
+          init-method="start" destroy-method="stop">
         <property name="host" value="localhost"/>
         <property name="port" value="8088"/>
-        <property name="authorizationToken" value="11ABA1B0-CF99-4E8A-8131-A162CBB32163"/>
+        <property name="authorizationToken" value="5DA702AD-D855-4679-9CDE-A398494BE854"/>
         <property name="validateCertificates" value="false"/>
     </bean>
 
-    <bean class="com.pronoia.splunk.jmx.SplunkJmxNotificationListener" init-method="start"
-          destroy-method="stop">
+    <bean class="com.pronoia.splunk.jmx.SplunkJmxNotificationListener" init-method="start" destroy-method="stop">
         <property name="splunkClient" ref="splunk-client"/>
+        <property name="splunkEventBuilder">
+            <bean class="com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxNotificationEventBuilder">
+                <property name="index" value="fuse-gc-dev" />
+            </bean>
+        </property>
         <property name="sourceMBeans">
             <set value-type="java.lang.String">
                 <value>java.lang:type=GarbageCollector,name=*</value>
@@ -34,4 +39,46 @@
         </property>
     </bean>
 
+    <bean class="com.pronoia.splunk.jmx.SplunkJmxAttributeChangeMonitor" init-method="start" destroy-method="stop">
+        <property name="splunkClient" ref="splunk-client"/>
+        <property name="splunkEventBuilder">
+            <bean class="com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxNotificationEventBuilder">
+                <property name="index" value="fuse-gc-dev" />
+                <property name="sourcetype" value="jvm-thread-statistics" />
+                <property name="includedSystemProperties">
+                    <map key-type="java.lang.String" value-type="java.lang.String">
+                        <entry key="karaf.name" value="container" />
+                    </map>
+                </property>
+            </bean>
+        </property>
+        <property name="granularityPeriod" value="5" />
+        <property name="maxSuppressedDuplicates" value="12" />
+        <property name="observedObjects" >
+            <list value-type="java.lang.String">
+                <value>java.lang:type=Threading</value>
+            </list>
+        </property>
+        <property name="observedAttributes" >
+            <list value-type="java.lang.String">
+                <value>DaemonThreadCount</value>
+                <value>PeakThreadCount</value>
+                <value>ThreadCount</value>
+                <value>TotalStartedThreadCount</value>
+                <!--
+                  <value>CurrentThreadCpuTime</value>
+                  <value>CurrentThreadCpuTimeSupported</value>
+                  <value>CurrentThreadUserTime</value>
+                  <value>ObjectMonitorUsageSupported</value>
+                  <value>SynchronizerUsageSupported</value>
+                  <value>ThreadAllocatedMemoryEnabled</value>
+                  <value>ThreadAllocatedMemorySupported</value>
+                  <value>ThreadContentionMonitoringEnabled</value>
+                  <value>ThreadContentionMonitoringSupported</value>
+                  <value>ThreadCpuTimeEnabled</value>
+                  <value>ThreadCpuTimeSupported</value>
+                 -->
+            </list>
+        </property>
+    </bean>
 </blueprint>

@@ -490,24 +490,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
   }
 
   @Test
-  public void testGetSplunkEventSourcetype() throws Exception {
-    assertEquals("Unexpected default value", "jmx-attributes", instance.splunkEventSourcetype);
-
-    instance.splunkEventSourcetype = "fred";
-
-    assertEquals("fred", instance.getSplunkEventSourcetype());
-  }
-
-  @Test
-  public void testSetSplunkEventSourcetype() throws Exception {
-    assertEquals("Unexpected default value", "jmx-attributes", instance.splunkEventSourcetype);
-
-    instance.setSplunkEventSourcetype("fred");
-
-    assertEquals("fred", instance.splunkEventSourcetype);
-  }
-
-  @Test
   public void testStartStop() throws Exception {
     EventCollectorClientStub clientStub = new EventCollectorClientStub();
 

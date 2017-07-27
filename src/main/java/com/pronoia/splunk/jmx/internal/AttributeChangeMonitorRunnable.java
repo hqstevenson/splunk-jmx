@@ -1,9 +1,10 @@
 package com.pronoia.splunk.jmx.internal;
 
+import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
 import com.pronoia.splunk.jmx.SplunkJmxAttributeChangeMonitor;
-import com.pronoia.splunk.jmx.eventcollector.builder.AttributeListEventBuilder;
+import com.pronoia.splunk.jmx.eventcollector.eventbuilder.AttributeListEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
@@ -38,7 +39,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
   final int maxSuppressedDuplicates;
   final EventCollectorClient splunkClient;
   Logger log = LoggerFactory.getLogger(this.getClass());
-  AttributeListEventBuilder eventBuilder;
+  EventBuilder<AttributeList> splunkEventBuilder;
 
   volatile ConcurrentMap<String, LastAttributeInfo> lastAttributes = new ConcurrentHashMap<>();
 
@@ -51,22 +52,11 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     this.maxSuppressedDuplicates = attributeChangeMonitor.getMaxSuppressedDuplicates();
 
     splunkClient = attributeChangeMonitor.getSplunkClient();
-
-    eventBuilder = new AttributeListEventBuilder();
-    if (attributeChangeMonitor.hasSplunkIndex()) {
-      eventBuilder.setIndex(attributeChangeMonitor.getSplunkIndex());
-    }
-    if (attributeChangeMonitor.hasSplunkHost()) {
-      eventBuilder.setHost(attributeChangeMonitor.getSplunkHost());
+    if (attributeChangeMonitor.hasSplunkEventBuilder()) {
+      splunkEventBuilder = attributeChangeMonitor.getSplunkEventBuilder().duplicate();
     } else {
-      eventBuilder.setHost();
-    }
-    if (attributeChangeMonitor.hasSplunkEventSource()) {
-      eventBuilder.setSource(attributeChangeMonitor.getSplunkEventSource());
-    }
-
-    if (attributeChangeMonitor.hasSplunkEventSourcetype()) {
-      eventBuilder.setSourcetype(attributeChangeMonitor.getSplunkEventSourcetype());
+      splunkEventBuilder = new AttributeListEventBuilder();
+      log.info("Splunk EventBuilder not specified - using default {}", splunkEventBuilder.getClass().getName());
     }
   }
 
@@ -96,10 +86,10 @@ public class AttributeChangeMonitorRunnable implements Runnable {
   }
 
   synchronized void collectAttributes(MBeanServer mbeanServer, ObjectName objectName) throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
-    eventBuilder.clearFields();
+    splunkEventBuilder.clearFields();
     Hashtable<String, String> objectNameProperties = objectName.getKeyPropertyList();
     for (String propertyName : objectNameProperties.keySet()) {
-      eventBuilder.setField(propertyName, objectNameProperties.get(propertyName));
+      splunkEventBuilder.setField(propertyName, objectNameProperties.get(propertyName));
     }
     String objectNameString = objectName.getCanonicalName();
     String[] queriedAttributeNameArray;
@@ -132,7 +122,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
 
     log.debug("Retrieving Attributes for '{}'", objectNameString);
     AttributeList attributeList = mbeanServer.getAttributes(objectName, queriedAttributeNameArray);
-    eventBuilder.timestamp();
+    splunkEventBuilder.timestamp();
     if (attributeList == null) {
       log.warn("MBeanServer.getAttributes( {}, {} ) returned null", objectName, queriedAttributeNameArray);
     } else if (attributeList.isEmpty()) {
@@ -165,8 +155,8 @@ public class AttributeChangeMonitorRunnable implements Runnable {
             if (lastAttributeInfo.hasValueChanged(attributeName, attributeMap.get(attributeName))) {
               log.debug("Found change in attribute {} for {} - sending event", objectNameString, attributeName);
               lastAttributeInfo.setAttributeMap(attributeMap);
-              eventBuilder.source(objectNameString).event(attributeList);
-              splunkClient.sendEvent(eventBuilder.build());
+              splunkEventBuilder.source(objectNameString).event(attributeList);
+              splunkClient.sendEvent(splunkEventBuilder.build());
               lastAttributes.put(objectNameString, lastAttributeInfo);
               return;
             }
@@ -178,8 +168,8 @@ public class AttributeChangeMonitorRunnable implements Runnable {
           } else {
             log.debug("Max suppressed duplicates [{} - {}] exceeded for {}  - sending event", lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates, objectNameString);
             lastAttributeInfo.resetSuppressionCount();
-            eventBuilder.source(objectNameString).event(attributeList);
-            splunkClient.sendEvent(eventBuilder.build());
+            splunkEventBuilder.source(objectNameString).event(attributeList);
+            splunkClient.sendEvent(splunkEventBuilder.build());
             lastAttributes.put(objectNameString, lastAttributeInfo);
             return;
           }
@@ -189,9 +179,9 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         lastAttributeInfo = new LastAttributeInfo(objectNameString);
         lastAttributeInfo.setAttributeMap(attributeMap);
         lastAttributes.put(objectNameString, lastAttributeInfo);
-        eventBuilder.source(objectNameString).event(attributeList);
-        eventBuilder.event(attributeList);
-        splunkClient.sendEvent(eventBuilder.build());
+        splunkEventBuilder.source(objectNameString).event(attributeList);
+        splunkEventBuilder.event(attributeList);
+        splunkClient.sendEvent(splunkEventBuilder.build());
       }
     }
   }

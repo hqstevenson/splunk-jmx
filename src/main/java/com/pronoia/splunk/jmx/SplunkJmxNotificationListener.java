@@ -17,9 +17,10 @@
 
 package com.pronoia.splunk.jmx;
 
+import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
-import com.pronoia.splunk.jmx.eventcollector.builder.JmxNotificationEventBuilder;
+import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxNotificationEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
@@ -48,36 +49,12 @@ import org.slf4j.LoggerFactory;
  * <p>index can be specified
  */
 public class SplunkJmxNotificationListener implements NotificationListener {
-  final MBeanServer mbeanServer;
   Logger log = LoggerFactory.getLogger(this.getClass());
   Set<String> sourceMBeanNames;
   Map<String, ObjectName> mbeanNameMap;
 
-  boolean includeEmptyAttrs = true;
-  boolean includeEmptyLists = false;
-
   EventCollectorClient splunkClient;
-  JmxNotificationEventBuilder eventBuilder;
-
-  /**
-   * Default Constructor.
-   *
-   * <p>Initializes the MBeanServer and the Splunk EventBuilder
-   */
-  public SplunkJmxNotificationListener() {
-    mbeanServer = ManagementFactory.getPlatformMBeanServer();
-    eventBuilder = new JmxNotificationEventBuilder();
-    eventBuilder.setHost();
-  }
-
-  /**
-   * Initializes the Splunk EventBuilder with the supplied value for the 'host' field.
-   */
-  public SplunkJmxNotificationListener(String host) {
-    mbeanServer = ManagementFactory.getPlatformMBeanServer();
-    eventBuilder = new JmxNotificationEventBuilder();
-    eventBuilder.setHost(host);
-  }
+  EventBuilder<Notification> splunkEventBuilder;
 
   /**
    * Get the MBean Names (as Strings) that will be monitored.
@@ -128,124 +105,24 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     }
   }
 
-  public boolean emptyAttributesIncluded() {
-    return includeEmptyAttrs;
-  }
-
-  public void includeEmptyAttributes() {
-    this.includeEmptyAttrs = true;
-  }
-
-  public void excludeEmptyAttributes() {
-    this.includeEmptyAttrs = false;
-  }
-
-  public boolean emptyObjectNameListsIncluded() {
-    return includeEmptyLists;
-  }
-
-  public void includeEmptyObjectNameLists() {
-    this.includeEmptyLists = true;
-  }
-
-  public void excludeEmptyObjectNameLists() {
-    this.includeEmptyLists = false;
-  }
-
-  public boolean isIncludeEmptyAttrs() {
-    return includeEmptyAttrs;
-  }
-
-  public void setIncludeEmptyAttrs(boolean includeEmptyAttrs) {
-    this.includeEmptyAttrs = includeEmptyAttrs;
-  }
-
-  public boolean isIncludeEmptyLists() {
-    return includeEmptyLists;
-  }
-
-  public void setIncludeEmptyLists(boolean includeEmptyLists) {
-    this.includeEmptyLists = includeEmptyLists;
-  }
-
-  public boolean isIncludeNotificationMessage() {
-    return eventBuilder.isIncludeNotificationMessage();
-  }
-
-  public void setIncludeNotificationMessage(boolean includeNotificationMessage) {
-    eventBuilder.setIncludeNotificationMessage(includeNotificationMessage);
-  }
-
-  public boolean isIncludeNotificationSequenceNumber() {
-    return eventBuilder.isIncludeNotificationSequenceNumber();
-  }
-
-  public void setIncludeNotificationSequenceNumber(boolean includeNotificationSequenceNumber) {
-    eventBuilder.setIncludeNotificationSequenceNumber(includeNotificationSequenceNumber);
-  }
-
-  public boolean isIncludeNotificationSource() {
-    return eventBuilder.isIncludeNotificationSource();
-  }
-
-  public void setIncludeNotificationSource(boolean includeNotificationSource) {
-    eventBuilder.setIncludeNotificationSource(includeNotificationSource);
-  }
-
-  public boolean isIncludeNotificationType() {
-    return eventBuilder.isIncludeNotificationType();
-  }
-
-  public void setIncludeNotificationType(boolean includeNotificationType) {
-    eventBuilder.setIncludeNotificationType(includeNotificationType);
-  }
-
-  public boolean isIncludeUserData() {
-    return eventBuilder.isIncludeUserData();
-  }
-
-  public void setIncludeUserData(boolean includeUserData) {
-    eventBuilder.setIncludeUserData(includeUserData);
-  }
-
-  public String getSplunkHost() {
-    return eventBuilder.getHost();
-  }
-
-  public void setSplunkHost(String index) {
-    eventBuilder.setHost(index);
-  }
-
-  public String getSplunkSource() {
-    return eventBuilder.getSource();
-  }
-
-  public void setSplunkSource(String source) {
-    eventBuilder.setSource(source);
-  }
-
-  public String getSplunkSourcetype() {
-    return eventBuilder.getSourcetype();
-  }
-
-  public void setSplunkSourcetype(String sourcetype) {
-    eventBuilder.setSourcetype(sourcetype);
-  }
-
-  public String getSplunkIndex() {
-    return eventBuilder.getIndex();
-  }
-
-  public void setSplunkIndex(String index) {
-    eventBuilder.setIndex(index);
-  }
-
   public EventCollectorClient getSplunkClient() {
     return splunkClient;
   }
 
   public void setSplunkClient(EventCollectorClient splunkClient) {
     this.splunkClient = splunkClient;
+  }
+
+  public boolean hasEventBuilder() {
+    return splunkEventBuilder != null;
+  }
+
+  public EventBuilder<Notification> getSplunkEventBuilder() {
+    return splunkEventBuilder;
+  }
+
+  public void setSplunkEventBuilder(EventBuilder<Notification> splunkEventBuilder) {
+    this.splunkEventBuilder = splunkEventBuilder;
   }
 
   /**
@@ -255,6 +132,8 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     if (splunkClient == null) {
       throw new IllegalStateException("Splunk Client must be specified");
     }
+
+    MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
 
     // Determine the actual source ObjectNames from the String values
     if (sourceMBeanNames != null && !sourceMBeanNames.isEmpty()) {
@@ -316,6 +195,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
       for (String canonicalName : mbeanNameMap.keySet()) {
         try {
+          MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
           mbeanServer.removeNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
         } catch (InstanceNotFoundException | ListenerNotFoundException removeListenerEx) {
           log.warn(String.format("Error removing listener for %s", canonicalName), removeListenerEx);
@@ -327,7 +207,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
   @Override
   public void handleNotification(Notification notification, Object handback) {
     log.debug("Received Notification: {} - {}", handback, notification.getType());
-    String eventBody = eventBuilder.event(notification).build();
+    String eventBody = splunkEventBuilder.event(notification).build();
 
     try {
       splunkClient.sendEvent(eventBody);

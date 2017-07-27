@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jmx.eventcollector.builder.util;
+package com.pronoia.splunk.jmx.eventcollector.eventbuilder.util;
 
 import java.util.Collection;
 import java.util.HashMap;

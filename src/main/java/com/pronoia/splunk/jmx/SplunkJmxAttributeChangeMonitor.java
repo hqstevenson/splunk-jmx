@@ -17,6 +17,7 @@
 
 package com.pronoia.splunk.jmx;
 
+import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jmx.internal.AttributeChangeMonitorRunnable;
 
@@ -28,6 +29,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import javax.management.AttributeList;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
@@ -58,10 +60,7 @@ public class SplunkJmxAttributeChangeMonitor {
   String[] cachedAttributeArray;
 
   EventCollectorClient splunkClient;
-  String splunkHost;
-  String splunkIndex;
-  String splunkEventSource;
-  String splunkEventSourcetype = "jmx-attributes";
+  EventBuilder<AttributeList> splunkEventBuilder;
 
   public int getExecutorPoolSize() {
     return executorPoolSize;
@@ -478,53 +477,6 @@ public class SplunkJmxAttributeChangeMonitor {
     this.includeEmptyLists = false;
   }
 
-  public boolean hasSplunkHost() {
-    return splunkHost != null && !splunkHost.isEmpty();
-  }
-
-  public String getSplunkHost() {
-    return splunkHost;
-  }
-
-  public void setSplunkHost(String splunkHost) {
-    this.splunkHost = splunkHost;
-  }
-
-  public boolean hasSplunkIndex() {
-    return splunkIndex != null && !splunkIndex.isEmpty();
-  }
-
-  public String getSplunkIndex() {
-    return splunkIndex;
-  }
-
-  public void setSplunkIndex(String splunkIndex) {
-    this.splunkIndex = splunkIndex;
-  }
-
-  public boolean hasSplunkEventSource() {
-    return splunkEventSource != null && !splunkEventSource.isEmpty();
-  }
-
-  public String getSplunkEventSource() {
-    return splunkEventSource;
-  }
-
-  public void setSplunkEventSource(String splunkEventSource) {
-    this.splunkEventSource = splunkEventSource;
-  }
-
-  public boolean hasSplunkEventSourcetype() {
-    return splunkEventSourcetype != null && !splunkEventSourcetype.isEmpty();
-  }
-
-  public String getSplunkEventSourcetype() {
-    return splunkEventSourcetype;
-  }
-
-  public void setSplunkEventSourcetype(String splunkEventSourcetype) {
-    this.splunkEventSourcetype = splunkEventSourcetype;
-  }
 
   public EventCollectorClient getSplunkClient() {
     return splunkClient;
@@ -532,6 +484,18 @@ public class SplunkJmxAttributeChangeMonitor {
 
   public void setSplunkClient(EventCollectorClient splunkClient) {
     this.splunkClient = splunkClient;
+  }
+
+  public boolean hasSplunkEventBuilder() {
+    return splunkEventBuilder != null;
+  }
+
+  public EventBuilder<AttributeList> getSplunkEventBuilder() {
+    return splunkEventBuilder;
+  }
+
+  public void setSplunkEventBuilder(EventBuilder<AttributeList> splunkEventBuilder) {
+    this.splunkEventBuilder = splunkEventBuilder;
   }
 
   public List<String> getExcludedObservedAttributes() {

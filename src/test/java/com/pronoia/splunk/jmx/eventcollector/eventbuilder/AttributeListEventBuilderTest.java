@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jmx.eventcollector.builder;
+package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -54,22 +54,22 @@ public class AttributeListEventBuilderTest {
 
   @Test
   public void testIsIncludeEmptyAttributes() throws Exception {
-    assertTrue("Default value should be true", instance.includeEmptyAttributes);
-    assertTrue("Should return true", instance.isIncludeEmptyAttributes());
-
-    instance.includeEmptyAttributes = false;
+    assertFalse("Default value should be false", instance.includeEmptyAttributes);
     assertFalse("Should return false", instance.isIncludeEmptyAttributes());
+
+    instance.includeEmptyAttributes = true;
+    assertTrue("Should return true", instance.isIncludeEmptyAttributes());
   }
 
   @Test
   public void testSetIncludeEmptyAttributes() throws Exception {
-    assertTrue("Default value should be true", instance.includeEmptyAttributes);
-
-    instance.setIncludeEmptyAttributes(false);
-    assertFalse("Should be false", instance.includeEmptyAttributes);
+    assertFalse("Default value should be false", instance.includeEmptyAttributes);
 
     instance.setIncludeEmptyAttributes(true);
     assertTrue("Should be true", instance.includeEmptyAttributes);
+
+    instance.setIncludeEmptyAttributes(false);
+    assertFalse("Should be false", instance.includeEmptyAttributes);
   }
 
   @Test

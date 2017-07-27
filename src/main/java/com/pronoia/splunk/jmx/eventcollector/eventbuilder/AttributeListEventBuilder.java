@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package com.pronoia.splunk.jmx.eventcollector.builder;
+package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
-import static com.pronoia.splunk.jmx.eventcollector.builder.JmxEventConstants.CONTAINER_KEY;
 
-import com.pronoia.splunk.eventcollector.builder.JacksonEventBuilderSupport;
+import com.pronoia.splunk.eventcollector.EventBuilder;
+import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -36,10 +36,29 @@ import javax.management.openmbean.CompositeDataSupport;
  * Splunk Event Builder for JMX AttributeLists.
  */
 public class AttributeListEventBuilder extends JacksonEventBuilderSupport<AttributeList> {
-  final String containerName = System.getProperty("karaf.name");
-
-  boolean includeEmptyAttributes = true;
+  boolean includeNullAttributes = false;
+  boolean includeEmptyAttributes = false;
+  boolean includeZeroAttributeValue = true;
   boolean includeEmptyObjectNameLists = false;
+
+  /**
+   * Determine if null attributes are be included.
+   *
+   * @return true if null attributes are included; false otherwise
+   */
+  public boolean isIncludeNullAttributes() {
+    return includeNullAttributes;
+  }
+
+  /**
+   * Enable/Disable the inclusion of null attributes in the generate Splunk Event.
+   *
+   * @param includeNullAttributes if true null attributes are included; otherwise null attributes
+   *                               are not included
+   */
+  public void setIncludeNullAttributes(boolean includeNullAttributes) {
+    this.includeNullAttributes = includeNullAttributes;
+  }
 
   /**
    * Determine if empty attributes are be included.
@@ -82,15 +101,6 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
   }
 
   @Override
-  protected void serializeFields(Map<String, Object> eventObject) {
-    if (containerName != null && !containerName.isEmpty()) {
-      addField(CONTAINER_KEY, containerName);
-    }
-
-    super.serializeFields(eventObject);
-  }
-
-  @Override
   protected void serializeBody(Map eventObject) {
     log.debug("{}.serializeBody() ...", this.getClass().getName());
 
@@ -105,10 +115,10 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
       log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
 
       if (attributeValue == null) {
-        if (includeEmptyAttributes) {
+        if (includeNullAttributes) {
           eventBodyObject.put(attributeName, attributeValue);
         } else {
-          log.warn("Excluding attribute {} with null value", attributeName);
+          log.debug("Excluding attribute {} with null value", attributeName);
         }
       } else if (attributeValue instanceof ObjectName) {
         ObjectName objectName = (ObjectName) attributeValue;
@@ -124,7 +134,7 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
         } else if (includeEmptyObjectNameLists) {
           eventBodyObject.put(attributeName, new LinkedList<>());
         } else {
-          log.warn("Excluding empty list attribute {}", attributeName);
+          log.debug("Excluding empty list attribute {}", attributeName);
         }
       } else if (attributeValue instanceof CompositeDataSupport) {
         CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
@@ -135,20 +145,26 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
         eventBodyObject.put(attributeName, compositeDataObject);
       } else {
         String attributeValueAsString = attributeValue.toString();
-        if (includeEmptyAttributes) {
-          eventBodyObject.put(attributeName, attributeValue);
-        } else {
-          if (attributeValueAsString.isEmpty()) {
-            log.warn("Ignoring empty string value for attribute {}", attributeName);
-          } else if (attributeValueAsString.equalsIgnoreCase("0")) {
-            log.warn("Ignoring zero value for attribute {} = {}",
-                    attributeName, attributeValueAsString);
-          } else {
+        if (attributeValueAsString.isEmpty()) {
+          if (includeEmptyAttributes) {
             eventBodyObject.put(attributeName, attributeValue);
+          } else {
+            log.debug("Ignoring empty string value for attribute {}", attributeName);
           }
+        } else if (!includeZeroAttributeValue && attributeValueAsString.equals("0")) {
+          log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
+        } else {
+          eventBodyObject.put(attributeName, attributeValue);
         }
       }
     }
     eventObject.put(EVENT_BODY_KEY, eventBodyObject);
   }
-}
+  @Override
+  public EventBuilder<AttributeList> duplicate() {
+    AttributeListEventBuilder answer = new AttributeListEventBuilder();
+
+    answer.copyConfiguration(this);
+
+    return answer;
+  }}
