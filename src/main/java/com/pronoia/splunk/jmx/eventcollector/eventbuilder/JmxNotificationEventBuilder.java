@@ -113,6 +113,10 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
       addField(NOTIFICATION_SOURCE_KEY, getEvent().getSource().toString());
     }
 
+    if (!hasHost()) {
+      setHost();
+    }
+
     super.serializeFields(eventObject);
   }
 

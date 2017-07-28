@@ -101,6 +101,15 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
   }
 
   @Override
+  protected void serializeFields(Map<String, Object> eventObject) {
+    if (!hasHost()) {
+      setHost();
+    }
+
+    super.serializeFields(eventObject);
+  }
+
+  @Override
   protected void serializeBody(Map eventObject) {
     log.debug("{}.serializeBody() ...", this.getClass().getName());
 
