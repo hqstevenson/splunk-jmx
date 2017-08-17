@@ -207,7 +207,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
   @Override
   public void handleNotification(Notification notification, Object handback) {
     log.debug("Received Notification: {} - {}", handback, notification.getType());
-    String eventBody = splunkEventBuilder.event(notification).build();
+    String eventBody = splunkEventBuilder.source(notification.getType()).event(notification).build();
 
     try {
       splunkClient.sendEvent(eventBody);

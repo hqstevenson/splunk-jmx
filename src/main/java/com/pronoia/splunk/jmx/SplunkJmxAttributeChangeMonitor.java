@@ -20,14 +20,18 @@ package com.pronoia.splunk.jmx;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.jmx.internal.AttributeChangeMonitorRunnable;
+import com.pronoia.splunk.jmx.internal.NamedThreadFactory;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.AttributeList;
 import javax.management.MalformedObjectNameException;
@@ -548,7 +552,7 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     if (executor == null) {
-      executor = new ScheduledThreadPoolExecutor(executorPoolSize);
+      executor = Executors.newScheduledThreadPool(executorPoolSize, new NamedThreadFactory(this.getClass().getSimpleName()));
     }
 
     for (ObjectName object : observedObjects) {
@@ -567,6 +571,37 @@ public class SplunkJmxAttributeChangeMonitor {
       executor.shutdown();
     }
     executor = null;
+  }
+
+  // Note:  The source code for this class was based entirely on
+  // Executors.DefaultThreadFactory class from the JDK8 source.
+  // The only change made is the ability to configure the thread
+  // name prefix.
+  static class AttributeChangeMonitorThreadFactory implements ThreadFactory {
+    private static final AtomicInteger poolNumber = new AtomicInteger(1);
+    private final ThreadGroup group;
+    private final AtomicInteger threadNumber = new AtomicInteger(1);
+    private final String namePrefix;
+
+    AttributeChangeMonitorThreadFactory() {
+      SecurityManager s = System.getSecurityManager();
+      group = (s != null) ? s.getThreadGroup() :
+          Thread.currentThread().getThreadGroup();
+      namePrefix = "pool-" +
+          poolNumber.getAndIncrement() +
+          "-thread-";
+    }
+
+    public Thread newThread(Runnable r) {
+      Thread t = new Thread(group, r,
+          namePrefix + threadNumber.getAndIncrement(),
+          0);
+      if (t.isDaemon())
+        t.setDaemon(false);
+      if (t.getPriority() != Thread.NORM_PRIORITY)
+        t.setPriority(Thread.NORM_PRIORITY);
+      return t;
+    }
   }
 
 }
