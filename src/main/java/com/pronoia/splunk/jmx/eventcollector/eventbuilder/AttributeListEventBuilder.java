@@ -101,21 +101,12 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
   }
 
   @Override
-  protected void serializeFields(Map<String, Object> eventObject) {
-    if (!hasHost()) {
-      setHost();
-    }
-
-    super.serializeFields(eventObject);
-  }
-
-  @Override
-  protected void serializeBody(Map eventObject) {
+  protected void addEventBodyToMap(Map<String, Object> map) {
     log.debug("{}.serializeBody() ...", this.getClass().getName());
 
     Map<String,Object> eventBodyObject =new HashMap<>();
 
-    for (Object attributeObject : this.getEvent()) {
+    for (Object attributeObject : this.getEventBody()) {
 
       Attribute attribute = (Attribute) attributeObject;
       String attributeName = attribute.getName();
@@ -167,7 +158,7 @@ public class AttributeListEventBuilder extends JacksonEventBuilderSupport<Attrib
         }
       }
     }
-    eventObject.put(EVENT_BODY_KEY, eventBodyObject);
+    map.put(EVENT_BODY_KEY, eventBodyObject);
   }
   @Override
   public EventBuilder<AttributeList> duplicate() {

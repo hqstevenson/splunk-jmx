@@ -18,6 +18,7 @@
 package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
+import static com.pronoia.splunk.eventcollector.EventCollectorInfo.TIMESTAMP_KEY;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
@@ -84,48 +85,40 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
   }
 
   @Override
-  public void setEvent(Notification eventBody) {
-    super.setEvent(eventBody);
-    setTimestamp(eventBody.getTimeStamp());
-    if (!hasSource()) {
-      setSource(eventBody.getSource().toString());
-    }
-    if (!hasSourcetype()) {
-      setSourcetype(eventBody.getType());
-    }
+  public void addDefaultFieldsToMap(Map<String, Object> map) {
+    setTimestamp( getEventBody().getTimeStamp() );
+    setSource(getEventBody().getSource().toString());
+
+    super.addDefaultFieldsToMap(map);
   }
 
   @Override
-  protected void serializeFields(Map<String, Object> eventObject) {
+  protected void addAdditionalFieldsToMap(Map<String, Object> map) {
+    super.addAdditionalFieldsToMap(map);
+
     if (includeNotificationType) {
-      addField(NOTIFICATION_TYPE_KEY, getEvent().getType());
+      map.put(NOTIFICATION_TYPE_KEY, getEventBody().getType());
     }
 
     if (includeNotificationMessage) {
-      addField(NOTIFICATION_MESSAGE_KEY, getEvent().getMessage());
+      addField(NOTIFICATION_MESSAGE_KEY, getEventBody().getMessage());
     }
 
     if (includeNotificationSequenceNumber) {
-      addField(NOTIFICATION_SEQUENCE_NUMBER_KEY, Long.toString(getEvent().getSequenceNumber()));
+      addField(NOTIFICATION_SEQUENCE_NUMBER_KEY, Long.toString(getEventBody().getSequenceNumber()));
     }
 
     if (includeNotificationSource) {
-      addField(NOTIFICATION_SOURCE_KEY, getEvent().getSource().toString());
+      addField(NOTIFICATION_SOURCE_KEY, getEventBody().getSource().toString());
     }
-
-    if (!hasHost()) {
-      setHost();
-    }
-
-    super.serializeFields(eventObject);
   }
 
   @Override
-  protected void serializeBody(Map<String, Object> eventObject) {
+  protected void addEventBodyToMap(Map<String, Object> map) {
     Map<String, Object> notificationEvent = new HashMap<>();
 
     if (includeUserData) {
-      Object userData = getEvent().getUserData();
+      Object userData = getEventBody().getUserData();
       if (userData != null) {
         if (userData instanceof CompositeData) {
           log.trace("Processing Composite Data for 'userData'");
@@ -139,7 +132,7 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
         }
       }
 
-      eventObject.put(EVENT_BODY_KEY, notificationEvent);
+      map.put(EVENT_BODY_KEY, notificationEvent);
     }
   }
 

@@ -172,7 +172,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
             if (lastAttributeInfo.hasValueChanged(attributeName, attributeMap.get(attributeName))) {
               log.debug("Found change in attribute {} for {} - sending event", objectNameString, attributeName);
               lastAttributeInfo.setAttributeMap(attributeMap);
-              splunkEventBuilder.source(objectNameString).event(attributeList);
+              splunkEventBuilder.source(objectNameString).eventBody(attributeList);
               splunkClient.sendEvent(splunkEventBuilder.build());
               lastAttributes.put(objectNameString, lastAttributeInfo);
               return;
@@ -185,7 +185,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
           } else {
             log.debug("Max suppressed duplicates [{} - {}] exceeded for {}  - sending event", lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates, objectNameString);
             lastAttributeInfo.resetSuppressionCount();
-            splunkEventBuilder.source(objectNameString).event(attributeList);
+            splunkEventBuilder.source(objectNameString).eventBody(attributeList);
             splunkClient.sendEvent(splunkEventBuilder.build());
             lastAttributes.put(objectNameString, lastAttributeInfo);
             return;
@@ -196,8 +196,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         lastAttributeInfo = new LastAttributeInfo(objectNameString);
         lastAttributeInfo.setAttributeMap(attributeMap);
         lastAttributes.put(objectNameString, lastAttributeInfo);
-        splunkEventBuilder.source(objectNameString).event(attributeList);
-        splunkEventBuilder.event(attributeList);
+        splunkEventBuilder.source(objectNameString).eventBody(attributeList);
         splunkClient.sendEvent(splunkEventBuilder.build());
       }
     }

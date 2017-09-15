@@ -54,7 +54,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
   Map<String, ObjectName> mbeanNameMap;
 
   EventCollectorClient splunkClient;
-  EventBuilder<Notification> splunkEventBuilder;
+  EventBuilder<Notification> splunkEventBuilder = new JmxNotificationEventBuilder();
 
   /**
    * Get the MBean Names (as Strings) that will be monitored.
@@ -207,7 +207,8 @@ public class SplunkJmxNotificationListener implements NotificationListener {
   @Override
   public void handleNotification(Notification notification, Object handback) {
     log.debug("Received Notification: {} - {}", handback, notification.getType());
-    String eventBody = splunkEventBuilder.source(notification.getType()).event(notification).build();
+    String type = notification.getType();
+    String eventBody = splunkEventBuilder.source(type).eventBody(notification).build();
 
     try {
       splunkClient.sendEvent(eventBody);
