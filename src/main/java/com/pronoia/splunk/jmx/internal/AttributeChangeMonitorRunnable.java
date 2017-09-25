@@ -21,7 +21,7 @@ import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
 import com.pronoia.splunk.jmx.SplunkJmxAttributeChangeMonitor;
-import com.pronoia.splunk.jmx.eventcollector.eventbuilder.AttributeListEventBuilder;
+import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxAttributeListEventBuilder;
 
 import java.lang.management.ManagementFactory;
 import java.util.Arrays;
@@ -72,14 +72,14 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     if (attributeChangeMonitor.hasSplunkEventBuilder()) {
       splunkEventBuilder = attributeChangeMonitor.getSplunkEventBuilder().duplicate();
     } else {
-      splunkEventBuilder = new AttributeListEventBuilder();
-      log.info("Splunk EventBuilder not specified - using default {}", splunkEventBuilder.getClass().getName());
+      splunkEventBuilder = new JmxAttributeListEventBuilder();
+      log.info("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}", queryObjectNamePattern.getCanonicalName(), splunkEventBuilder.getClass().getName());
     }
   }
 
   @Override
   synchronized public void run() {
-    log.debug("{}.run() called", this.getClass().getSimpleName());
+    log.debug("run() started for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
 
     MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
     Set<ObjectName> objectNameSet = mbeanServer.queryNames(queryObjectNamePattern, null);
@@ -91,15 +91,15 @@ public class AttributeChangeMonitorRunnable implements Runnable {
             queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent());
         log.error(errorMessage, eventDeliveryEx);
       } catch (InstanceNotFoundException | ReflectionException | IntrospectionException jmxEx) {
-        String errorMessage = String.format("Unexpected %s in run %s[%s]", jmxEx.getClass().getSimpleName(), queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName());
+        String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]", jmxEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
         log.warn(errorMessage, jmxEx);
       } catch (Throwable unexpectedEx) {
-        String errorMessage = String.format("Unexpected %s in run %s[%s]", unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName());
+        String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]", unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
         log.warn(errorMessage, unexpectedEx);
       }
     }
 
-    log.debug("{}.run() completed", this.getClass().getSimpleName());
+    log.debug("run() completed for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
   }
 
   synchronized void collectAttributes(MBeanServer mbeanServer, ObjectName objectName) throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
@@ -111,7 +111,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     String objectNameString = objectName.getCanonicalName();
     String[] queriedAttributeNameArray;
     if (cachedAttributeArray != null) {
-      log.debug("Using cachedAttributeArray: {}", Arrays.toString(cachedAttributeArray));
+      log.debug("Using cachedAttributeArray for : {}", Arrays.toString(cachedAttributeArray));
       queriedAttributeNameArray = cachedAttributeArray;
     } else {
       // Attributes were not specified - look at all of them

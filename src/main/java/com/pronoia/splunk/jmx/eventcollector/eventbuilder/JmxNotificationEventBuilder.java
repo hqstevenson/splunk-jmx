@@ -18,20 +18,16 @@
 package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
-import static com.pronoia.splunk.eventcollector.EventCollectorInfo.TIMESTAMP_KEY;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
-import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
-import com.pronoia.splunk.jmx.eventcollector.eventbuilder.util.OpenTypeJSONUtils;
-
+import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.management.Notification;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
-public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Notification> {
+public class JmxNotificationEventBuilder extends JmxEventBuilderSupport<Notification> {
   public static final String NOTIFICATION_TYPE_KEY = "notificationType";
   public static final String NOTIFICATION_MESSAGE_KEY = "notificationMessage";
   public static final String NOTIFICATION_SEQUENCE_NUMBER_KEY = "notificationSequenceNumber";
@@ -85,11 +81,30 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
   }
 
   @Override
-  public void addDefaultFieldsToMap(Map<String, Object> map) {
-    setTimestamp( getEventBody().getTimeStamp() );
-    setSource(getEventBody().getSource().toString());
+  public EventBuilder<Notification> duplicate() {
+    JmxNotificationEventBuilder answer = new JmxNotificationEventBuilder();
 
-    super.addDefaultFieldsToMap(map);
+    answer.copyConfiguration(this);
+
+    return answer;
+  }
+
+  @Override
+  public String getSourceFieldValue() {
+    if (hasEventBody()) {
+      return getEventBody().getSource().toString();
+    }
+
+    return super.getSourceFieldValue();
+  }
+
+  @Override
+  public String getTimestampFieldValue() {
+    if (hasEventBody()) {
+      return String.format("%.3f", getEventBody().getTimeStamp() / 1000.0);
+    }
+
+    return super.getTimestampFieldValue();
   }
 
   @Override
@@ -122,10 +137,10 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
       if (userData != null) {
         if (userData instanceof CompositeData) {
           log.trace("Processing Composite Data for 'userData'");
-          OpenTypeJSONUtils.addCompositeData(notificationEvent, (CompositeData) userData);
+          addCompositeData(notificationEvent, (CompositeData) userData);
         } else if (userData instanceof TabularData) {
           log.trace("Processing Tabular Data for 'userData'");
-          OpenTypeJSONUtils.addTabularData(notificationEvent, (TabularData) userData);
+          addTabularData(notificationEvent, (TabularData) userData);
         } else {
           log.debug("Processing {} for {}", userData.getClass().getName(), "userData");
           notificationEvent.put(NOTIFICATION_USER_DATA_KEY, userData.toString());
@@ -137,11 +152,16 @@ public class JmxNotificationEventBuilder extends JacksonEventBuilderSupport<Noti
   }
 
   @Override
-  public EventBuilder<Notification> duplicate() {
-    JmxNotificationEventBuilder answer = new JmxNotificationEventBuilder();
+  protected void copyConfiguration(EventBuilderSupport<Notification> sourceEventBuilder) {
+    super.copyConfiguration(sourceEventBuilder);
 
-    answer.copyConfiguration(this);
-
-    return answer;
+    if (sourceEventBuilder instanceof JmxNotificationEventBuilder) {
+      JmxNotificationEventBuilder sourceJmxNotificationEventBuilder = (JmxNotificationEventBuilder) sourceEventBuilder;
+      this.includeNotificationMessage = sourceJmxNotificationEventBuilder.includeNotificationMessage;
+      this.includeNotificationSequenceNumber = sourceJmxNotificationEventBuilder.includeNotificationSequenceNumber;
+      this.includeNotificationSource = sourceJmxNotificationEventBuilder.includeNotificationSource;
+      this.includeNotificationType = sourceJmxNotificationEventBuilder.includeNotificationType;
+      this.includeUserData = sourceJmxNotificationEventBuilder.includeUserData;
+    }
   }
 }

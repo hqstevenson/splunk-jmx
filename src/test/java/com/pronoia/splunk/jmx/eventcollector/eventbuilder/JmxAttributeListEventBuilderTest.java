@@ -28,13 +28,13 @@ import javax.management.ObjectName;
 import org.junit.Before;
 import org.junit.Test;
 
-public class AttributeListEventBuilderTest {
-  AttributeListEventBuilder instance;
+public class JmxAttributeListEventBuilderTest {
+  JmxAttributeListEventBuilder instance;
   Map eventBody;
 
   @Before
   public void setUp() throws Exception {
-    instance = new AttributeListEventBuilder();
+    instance = new JmxAttributeListEventBuilder();
 
     eventBody = new HashMap();
     eventBody.put("nullStringAttribute", null);
