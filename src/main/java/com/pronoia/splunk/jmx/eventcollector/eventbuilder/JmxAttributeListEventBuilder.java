@@ -20,8 +20,13 @@ package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
+import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
+
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+
 import javax.management.Attribute;
 import javax.management.AttributeList;
 
@@ -29,6 +34,66 @@ import javax.management.AttributeList;
  * Splunk Event Builder for JMX AttributeLists.
  */
 public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<AttributeList> {
+
+  boolean excludeZeroAttributeValues = false;
+
+  Set<String> collectedAttributes = new HashSet<>();
+
+  public boolean isExcludeZeroAttributeValues() {
+    return excludeZeroAttributeValues;
+  }
+
+  public void setExcludeZeroAttributeValues(boolean excludeZeroAttributeValues) {
+    this.excludeZeroAttributeValues = excludeZeroAttributeValues;
+  }
+
+  public boolean isCollectedAttribute(Attribute attribute) {
+    boolean answer = false;
+
+    if (attribute != null && hasCollectedAttributes()) {
+      answer = collectedAttributes.contains(attribute.getName());
+    }
+
+    return answer;
+  }
+
+  public boolean hasCollectedAttributes() {
+    return collectedAttributes != null && !collectedAttributes.isEmpty();
+  }
+
+  public Set<String> getCollectedAttributes() {
+    return collectedAttributes;
+  }
+
+  public void setCollectedAttributes(Set<String> collectedAttributes) {
+    if (this.collectedAttributes != null) {
+      this.collectedAttributes.clear();
+    } else {
+      this.collectedAttributes = new HashSet<>();
+    }
+
+    if (collectedAttributes != null && !collectedAttributes.isEmpty()) {
+      this.collectedAttributes.addAll(collectedAttributes);
+    }
+  }
+
+  @Override
+  protected void addEventBodyToMap(Map<String, Object> map) {
+    log.debug("{}.serializeBody() ...", this.getClass().getName());
+
+    Map<String, Object> eventBodyObject = new HashMap<>();
+
+    for (Object attributeObject : this.getEventBody()) {
+      Attribute attribute = (Attribute) attributeObject;
+      if (isCollectedAttribute(attribute)) {
+        addAttribute(eventBodyObject, attribute, false);
+      } else {
+        addAttribute(eventBodyObject, attribute, excludeZeroAttributeValues);
+      }
+    }
+
+    map.put(EVENT_BODY_KEY, eventBodyObject);
+  }
 
   @Override
   public EventBuilder<AttributeList> duplicate() {
@@ -40,17 +105,15 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
   }
 
   @Override
-  protected void addEventBodyToMap(Map<String, Object> map) {
-    log.debug("{}.serializeBody() ...", this.getClass().getName());
+  protected void copyConfiguration(EventBuilderSupport<AttributeList> sourceEventBuilder) {
+    super.copyConfiguration(sourceEventBuilder);
 
-    Map<String, Object> eventBodyObject = new HashMap<>();
-
-    for (Object attributeObject : this.getEventBody()) {
-      Attribute attribute = (Attribute) attributeObject;
-      addAttribute(eventBodyObject, attribute);
+    if (sourceEventBuilder instanceof JmxAttributeListEventBuilder) {
+      JmxAttributeListEventBuilder sourceJmxAttributeListEventBuilder = (JmxAttributeListEventBuilder) sourceEventBuilder;
+      this.excludeZeroAttributeValues = sourceJmxAttributeListEventBuilder.excludeZeroAttributeValues;
+      if (sourceJmxAttributeListEventBuilder.hasCollectedAttributes()) {
+        this.setCollectedAttributes(sourceJmxAttributeListEventBuilder.getCollectedAttributes());
+      }
     }
-    map.put(EVENT_BODY_KEY, eventBodyObject);
   }
-
-
 }

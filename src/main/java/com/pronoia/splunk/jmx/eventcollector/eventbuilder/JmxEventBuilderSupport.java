@@ -1,29 +1,25 @@
 /**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE file distributed with this work for additional information regarding copyright
+ * ownership. The ASF licenses this file to You under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the
+ * License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied. See the License for the specific language governing permissions and limitations under the License.
  */
 
 package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
+
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
 import javax.management.Attribute;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
@@ -36,8 +32,6 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
   boolean includeNullAttributes = false;
   boolean includeEmptyAttributes = false;
   boolean includeEmptyObjectNameLists = false;
-
-  boolean excludeZeroAttributeValues = false;
 
   public boolean isIncludeNullAttributes() {
     return includeNullAttributes;
@@ -53,14 +47,6 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
 
   public void setIncludeEmptyAttributes(boolean includeEmptyAttributes) {
     this.includeEmptyAttributes = includeEmptyAttributes;
-  }
-
-  public boolean isExcludeZeroAttributeValues() {
-    return excludeZeroAttributeValues;
-  }
-
-  public void setExcludeZeroAttributeValues(boolean excludeZeroAttributeValues) {
-    this.excludeZeroAttributeValues = excludeZeroAttributeValues;
   }
 
   public boolean isIncludeEmptyObjectNameLists() {
@@ -91,13 +77,7 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
       if (valueString.isEmpty() && includeEmptyAttributes) {
         targetMap.put(key, valueString);
       } else {
-        if (valueString.equals("0") || valueString.equals("0.0")) {
-          if (!excludeZeroAttributeValues) {
-            targetMap.put(key, valueString);
-          }
-        } else {
-          targetMap.put(key, valueString);
-        }
+        targetMap.put(key, valueString);
       }
     }
   }
@@ -248,57 +228,57 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
     }
   }
 
-  public void addAttribute(Map<String, Object> jsonObject, Attribute attribute) {
+  public void addAttribute(Map<String, Object> jsonObject, Attribute attribute, boolean excludeZeroAttributeValues) {
     log.debug("{}.serializeBody() ...", this.getClass().getName());
 
-      String attributeName = attribute.getName();
-      Object attributeValue = attribute.getValue();
+    String attributeName = attribute.getName();
+    Object attributeValue = attribute.getValue();
 
-      log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
+    log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
 
-      if (attributeValue == null) {
-        if (includeNullAttributes) {
-          jsonObject.put(attributeName, attributeValue);
-        } else {
-          log.debug("Excluding attribute {} with null value", attributeName);
-        }
-      } else if (attributeValue instanceof ObjectName) {
-        ObjectName objectName = (ObjectName) attributeValue;
-        jsonObject.put(attributeName, objectName.getCanonicalName());
-      } else if (attributeValue instanceof ObjectName[]) {
-        ObjectName[] objectNames = (ObjectName[]) attributeValue;
-        if (objectNames.length > 0) {
-          List<String> objectNameList = new LinkedList<>();
-          for (ObjectName objectName : objectNames) {
-            objectNameList.add(objectName.toString());
-          }
-          jsonObject.put(attributeName, objectNameList);
-        } else if (includeEmptyObjectNameLists) {
-          jsonObject.put(attributeName, new LinkedList<>());
-        } else {
-          log.debug("Excluding empty list attribute {}", attributeName);
-        }
-      } else if (attributeValue instanceof CompositeDataSupport) {
-        CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
-        Map<String,Object> compositeDataObject =new HashMap<>();
-        for (String key : compositeDataSupport.getCompositeType().keySet()) {
-          compositeDataObject.put(key, compositeDataSupport.get(key));
-        }
-        jsonObject.put(attributeName, compositeDataObject);
+    if (attributeValue == null) {
+      if (includeNullAttributes) {
+        jsonObject.put(attributeName, attributeValue);
       } else {
-        String attributeValueAsString = attributeValue.toString();
-        if (attributeValueAsString.isEmpty()) {
-          if (includeEmptyAttributes) {
-            jsonObject.put(attributeName, attributeValue);
-          } else {
-            log.debug("Ignoring empty string value for attribute {}", attributeName);
-          }
-        } else if (excludeZeroAttributeValues && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
-          log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
-        } else {
-          jsonObject.put(attributeName, attributeValue);
-        }
+        log.debug("Excluding attribute {} with null value", attributeName);
       }
+    } else if (attributeValue instanceof ObjectName) {
+      ObjectName objectName = (ObjectName) attributeValue;
+      jsonObject.put(attributeName, objectName.getCanonicalName());
+    } else if (attributeValue instanceof ObjectName[]) {
+      ObjectName[] objectNames = (ObjectName[]) attributeValue;
+      if (objectNames.length > 0) {
+        List<String> objectNameList = new LinkedList<>();
+        for (ObjectName objectName : objectNames) {
+          objectNameList.add(objectName.toString());
+        }
+        jsonObject.put(attributeName, objectNameList);
+      } else if (includeEmptyObjectNameLists) {
+        jsonObject.put(attributeName, new LinkedList<>());
+      } else {
+        log.debug("Excluding empty list attribute {}", attributeName);
+      }
+    } else if (attributeValue instanceof CompositeDataSupport) {
+      CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
+      Map<String, Object> compositeDataObject = new HashMap<>();
+      for (String key : compositeDataSupport.getCompositeType().keySet()) {
+        compositeDataObject.put(key, compositeDataSupport.get(key));
+      }
+      jsonObject.put(attributeName, compositeDataObject);
+    } else {
+      String attributeValueAsString = attributeValue.toString();
+      if (attributeValueAsString.isEmpty()) {
+        if (includeEmptyAttributes) {
+          jsonObject.put(attributeName, attributeValue);
+        } else {
+          log.debug("Ignoring empty string value for attribute {}", attributeName);
+        }
+      } else if (excludeZeroAttributeValues && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
+        log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
+      } else {
+        jsonObject.put(attributeName, attributeValue);
+      }
+    }
   }
 
   @Override
@@ -309,7 +289,6 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
       JmxEventBuilderSupport sourceJmxEventBuilderSupport = (JmxEventBuilderSupport) sourceEventBuilder;
       this.includeNullAttributes = sourceJmxEventBuilderSupport.includeNullAttributes;
       this.includeEmptyAttributes = sourceJmxEventBuilderSupport.includeEmptyAttributes;
-      this.excludeZeroAttributeValues = sourceJmxEventBuilderSupport.excludeZeroAttributeValues;
       this.includeEmptyObjectNameLists = sourceJmxEventBuilderSupport.isIncludeEmptyObjectNameLists();
     }
   }
