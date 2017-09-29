@@ -91,7 +91,7 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
       if (valueString.isEmpty() && includeEmptyAttributes) {
         targetMap.put(key, valueString);
       } else {
-        if (valueString.equals("0")) {
+        if (valueString.equals("0") || valueString.equals("0.0")) {
           if (!excludeZeroAttributeValues) {
             targetMap.put(key, valueString);
           }
@@ -293,7 +293,7 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
           } else {
             log.debug("Ignoring empty string value for attribute {}", attributeName);
           }
-        } else if (excludeZeroAttributeValues && attributeValueAsString.equals("0")) {
+        } else if (excludeZeroAttributeValues && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
           log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
         } else {
           jsonObject.put(attributeName, attributeValue);
