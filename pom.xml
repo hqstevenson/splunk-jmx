@@ -23,7 +23,7 @@
     <groupId>com.pronoia.splunk</groupId>
     <artifactId>splunk.jmx</artifactId>
     <packaging>bundle</packaging>
-    <version>0.5.3</version>
+    <version>0.5.5</version>
 
     <name>Splunk JMX Support Classes</name>
 

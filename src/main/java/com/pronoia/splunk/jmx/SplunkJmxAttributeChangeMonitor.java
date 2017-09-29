@@ -556,9 +556,9 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     for (ObjectName object : observedObjects) {
+      AttributeChangeMonitorRunnable runnable = new AttributeChangeMonitorRunnable(this, object);
       log.info("Scheduling {} for {}", AttributeChangeMonitorRunnable.class.getSimpleName(), object.getCanonicalName());
-      executor.scheduleWithFixedDelay(new AttributeChangeMonitorRunnable(this, object),
-          granularityPeriod, granularityPeriod, TimeUnit.SECONDS);
+      executor.scheduleWithFixedDelay(runnable, granularityPeriod, granularityPeriod, TimeUnit.SECONDS);
     }
   }
 

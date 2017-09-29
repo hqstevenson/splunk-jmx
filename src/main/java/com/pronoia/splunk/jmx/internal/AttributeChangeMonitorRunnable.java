@@ -75,6 +75,11 @@ public class AttributeChangeMonitorRunnable implements Runnable {
       splunkEventBuilder = new JmxAttributeListEventBuilder();
       log.info("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}", queryObjectNamePattern.getCanonicalName(), splunkEventBuilder.getClass().getName());
     }
+
+    if (splunkEventBuilder instanceof JmxAttributeListEventBuilder) {
+      JmxAttributeListEventBuilder jmxAttributeListEventBuilder = (JmxAttributeListEventBuilder) splunkEventBuilder;
+      jmxAttributeListEventBuilder.setCollectedAttributes(collectedAttributes);
+    }
   }
 
   @Override
