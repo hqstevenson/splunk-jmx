@@ -42,9 +42,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Utility class for sending JMX Notifications to Splunk
  *
- * <p>source -> ObjectName of the bean which emits the Notification
- * sourcetype -> JMX Notification Type ( returned from Notification.getType() )
- * timestamp -> JMX Notification Timestamp ( returned from Notification.getTimeStamp() )
+ * source = ObjectName of the bean which emits the Notification
+ * sourcetype = JMX Notification Type ( returned from Notification.getType() )
+ * timestamp = JMX Notification Timestamp ( returned from Notification.getTimeStamp() )
  *
  * <p>index can be specified
  */

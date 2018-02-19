@@ -17,12 +17,16 @@
 
 package com.pronoia.splunk.jmx.eventcollector.eventbuilder;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
+import javax.management.Attribute;
+import javax.management.AttributeList;
 import javax.management.ObjectName;
 
 import org.junit.Before;
@@ -30,26 +34,24 @@ import org.junit.Test;
 
 public class JmxAttributeListEventBuilderTest {
   JmxAttributeListEventBuilder instance;
-  Map eventBody;
+  AttributeList eventBody;
 
   @Before
   public void setUp() throws Exception {
     instance = new JmxAttributeListEventBuilder();
 
-    eventBody = new HashMap();
-    eventBody.put("nullStringAttribute", null);
-    eventBody.put("stringAttribute", "stringAttributeValue");
-    eventBody.put("emptyStringAttribute", "");
-    eventBody.put("zeroAttribute", Integer.valueOf(0));
+    eventBody = new AttributeList();
+    eventBody.add(new Attribute("nullStringAttribute", null));
+    eventBody.add(new Attribute("stringAttribute", "stringAttributeValue"));
+    eventBody.add(new Attribute("emptyStringAttribute", ""));
+    eventBody.add(new Attribute("zeroAttribute", Integer.valueOf(0)));
 
     ObjectName[] objectNames = new ObjectName[]{
         new ObjectName("edu.ucla.mednet", "key", "value1"),
         new ObjectName("edu.ucla.mednet", "key", "value2"),
         new ObjectName("edu.ucla.mednet", "key", "value3")
     };
-    eventBody.put("objectNameList", objectNames);
-    eventBody.put("emptyObjectNameList", new ObjectName[0]);
-    eventBody.put("nullObjectNameList", (ObjectName[]) null);
+
   }
 
   @Test
@@ -92,37 +94,30 @@ public class JmxAttributeListEventBuilderTest {
     assertFalse("Should be false", instance.includeEmptyObjectNameLists);
 
   }
-  /*
+
   @Test
   public void testSerializeBodyWithEmptyAttributesDisabled() throws Exception {
     // @formatter:off
     final String expected
-        = "{"
-        +     "\"event\":"
-        +         "{"
-        +             "\"objectNameList\":"
-        +                 "["
-        +                     "\"edu.ucla.mednet:key=value1\","
-        +                     "\"edu.ucla.mednet:key=value2\","
-        +                     "\"edu.ucla.mednet:key=value3\""
-        +                 "],"
-        +             "\"stringAttribute\":\"stringAttributeValue\""
-        +         "}"
-        + "}";
+        = "{event="
+        +   "{"
+        +     "zeroAttribute=0, "
+        +     "stringAttribute=stringAttributeValue"
+        +   "}"
+        +  "}";
     // @formatter:on
 
-    JSONObject jsonObject = new JSONObject();
-    Map<String,String> jsonMap=new HashMap<>();
-    ObjectMapper om=new ObjectMapper();
-    jsonMap = om.readValue(expected, new TypeReference<Map<String, String>>(){});
+    Map<String, Object> eventObject = new LinkedHashMap<>();
+
     instance.setIncludeEmptyAttributes(false);
 
-    instance.event(eventBody);
-    instance.serializeBody(jsonMap);
+    instance.eventBody(eventBody);
+    instance.addEventBodyToMap(eventObject);
 
-    assertEquals(expected, jsonObject.toJSONString());
+    assertEquals(expected, eventObject.toString());
   }
 
+  /*
   @Test
   public void testSerializeBodyWithEmptyListsEnabled() throws Exception {
     // @formatter:off
