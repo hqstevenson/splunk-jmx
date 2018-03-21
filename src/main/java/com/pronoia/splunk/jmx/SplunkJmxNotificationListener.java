@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,6 +39,7 @@ import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxNotificationEventBu
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 /**
  * Utility class for sending JMX Notifications to Splunk
  *
@@ -54,7 +55,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     Map<String, ObjectName> mbeanNameMap;
 
     EventCollectorClient splunkClient;
-    EventBuilder<Notification> splunkEventBuilder = new JmxNotificationEventBuilder();
+    EventBuilder<Notification> splunkEventBuilder;
 
     /**
      * Get the MBean Names (as Strings) that will be monitored.
@@ -121,6 +122,13 @@ public class SplunkJmxNotificationListener implements NotificationListener {
         return splunkEventBuilder;
     }
 
+    /**
+     * Set the {@link EventBuilder} to use.
+     *
+     * If an event builder is not configured, a default {@link JmxNotificationEventBuilder} will be created and configured using the properties of the notification listener.
+     *
+     * @param splunkEventBuilder The {@link EventBuilder} to use.
+     */
     public void setSplunkEventBuilder(EventBuilder<Notification> splunkEventBuilder) {
         this.splunkEventBuilder = splunkEventBuilder;
     }
@@ -131,6 +139,10 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     public void start() {
         if (splunkClient == null) {
             throw new IllegalStateException("Splunk Client must be specified");
+        }
+
+        if (!hasEventBuilder()) {
+            splunkEventBuilder = new JmxNotificationEventBuilder();
         }
 
         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();

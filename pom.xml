@@ -25,7 +25,7 @@
     <groupId>com.github.hqstevenson.splunk</groupId>
     <artifactId>splunk.jmx</artifactId>
     <packaging>bundle</packaging>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 
     <name>Splunk JMX Support Classes</name>
     <description>
@@ -60,7 +60,7 @@
         <dependency>
             <groupId>com.github.hqstevenson.splunk</groupId>
             <artifactId>splunk.httpec</artifactId>
-            <version>1.0.0</version>
+            <version>1.2.0</version>
         </dependency>
 
         <!-- Test Dependencies -->

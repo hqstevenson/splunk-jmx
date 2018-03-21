@@ -18,6 +18,7 @@ package com.pronoia.splunk.jmx;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Executors;
@@ -26,12 +27,14 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.management.Attribute;
 import javax.management.AttributeList;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
+import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxAttributeListEventBuilder;
 import com.pronoia.splunk.jmx.internal.AttributeChangeMonitorRunnable;
 import com.pronoia.splunk.jmx.internal.NamedThreadFactory;
 
@@ -53,8 +56,7 @@ public class SplunkJmxAttributeChangeMonitor {
 
     long granularityPeriod = 15;
     int maxSuppressedDuplicates = -1;
-    boolean includeEmptyAttrs = true;
-    boolean includeEmptyLists;
+
     Set<String> observedAttributes = new TreeSet<>();
     Set<String> excludedObservedAttributes = new TreeSet<>();
     Set<String> collectedAttributes = new TreeSet<>();
@@ -439,47 +441,6 @@ public class SplunkJmxAttributeChangeMonitor {
         this.maxSuppressedDuplicates = maxSuppressedDuplicates;
     }
 
-    public boolean isIncludeEmptyAttrs() {
-        return includeEmptyAttrs;
-    }
-
-    public void setIncludeEmptyAttrs(boolean includeEmptyAttrs) {
-        this.includeEmptyAttrs = includeEmptyAttrs;
-    }
-
-    public boolean emptyAttributesIncluded() {
-        return includeEmptyAttrs;
-    }
-
-    public void includeEmptyAttributes() {
-        this.includeEmptyAttrs = true;
-    }
-
-    public void excludeEmptyAttributes() {
-        this.includeEmptyAttrs = false;
-    }
-
-    public boolean isIncludeEmptyLists() {
-        return includeEmptyLists;
-    }
-
-    public void setIncludeEmptyLists(boolean includeEmptyLists) {
-        this.includeEmptyLists = includeEmptyLists;
-    }
-
-    public boolean emptyObjectNameListsIncluded() {
-        return includeEmptyLists;
-    }
-
-    public void includeEmptyObjectNameLists() {
-        this.includeEmptyLists = true;
-    }
-
-    public void excludeEmptyObjectNameLists() {
-        this.includeEmptyLists = false;
-    }
-
-
     public EventCollectorClient getSplunkClient() {
         return splunkClient;
     }
@@ -496,6 +457,13 @@ public class SplunkJmxAttributeChangeMonitor {
         return splunkEventBuilder;
     }
 
+    /**
+     * Set the {@link EventBuilder} to use.
+     *
+     * If an event builder is not configured, a default {@link JmxAttributeListEventBuilder} will be created and configured using the properties of the monitor.
+     *
+     * @param splunkEventBuilder The {@link EventBuilder} to use.
+     */
     public void setSplunkEventBuilder(EventBuilder<AttributeList> splunkEventBuilder) {
         this.splunkEventBuilder = splunkEventBuilder;
     }

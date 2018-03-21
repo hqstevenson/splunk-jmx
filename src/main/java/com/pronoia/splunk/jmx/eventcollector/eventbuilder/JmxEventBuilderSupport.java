@@ -233,7 +233,7 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
         }
     }
 
-    public void addAttribute(Map<String, Object> jsonObject, Attribute attribute, boolean excludeZeroAttributeValues) {
+    public void addAttribute(Map<String, Object> jsonObject, Attribute attribute, boolean includeAttributeWithValueOfZero) {
         log.debug("{}.serializeBody() ...", this.getClass().getName());
 
         String attributeName = attribute.getName();
@@ -278,7 +278,7 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
                 } else {
                     log.debug("Ignoring empty string value for attribute {}", attributeName);
                 }
-            } else if (excludeZeroAttributeValues && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
+            } else if (!includeAttributeWithValueOfZero && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
                 log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
             } else {
                 jsonObject.put(attributeName, attributeValue);

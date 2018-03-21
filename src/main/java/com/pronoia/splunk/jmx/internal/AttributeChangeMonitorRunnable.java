@@ -56,7 +56,9 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     final Set<String> collectedAttributes;
     final int maxSuppressedDuplicates;
     final EventCollectorClient splunkClient;
+
     Logger log = LoggerFactory.getLogger(this.getClass());
+
     EventBuilder<AttributeList> splunkEventBuilder;
 
     volatile ConcurrentMap<String, LastAttributeInfo> lastAttributes = new ConcurrentHashMap<>();
@@ -73,13 +75,12 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         if (attributeChangeMonitor.hasSplunkEventBuilder()) {
             splunkEventBuilder = attributeChangeMonitor.getSplunkEventBuilder().duplicate();
         } else {
-            splunkEventBuilder = new JmxAttributeListEventBuilder();
-            log.info("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}", queryObjectNamePattern.getCanonicalName(), splunkEventBuilder.getClass().getName());
-        }
+            log.debug("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}", queryObjectNamePattern.getCanonicalName(), JmxAttributeListEventBuilder.class.getName());
+            JmxAttributeListEventBuilder tmpEventBuilder = new JmxAttributeListEventBuilder();
 
-        if (splunkEventBuilder instanceof JmxAttributeListEventBuilder) {
-            JmxAttributeListEventBuilder jmxAttributeListEventBuilder = (JmxAttributeListEventBuilder) splunkEventBuilder;
-            jmxAttributeListEventBuilder.setCollectedAttributes(collectedAttributes);
+            tmpEventBuilder.setCollectedAttributes(collectedAttributes);
+
+            splunkEventBuilder = tmpEventBuilder;
         }
     }
 

@@ -413,62 +413,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     }
 
     @Test
-    public void testEmptyAttributesIncluded() throws Exception {
-        assertTrue("Unexpected default value", instance.includeEmptyAttrs);
-
-        instance.includeEmptyAttrs = false;
-
-        assertFalse(instance.emptyAttributesIncluded());
-    }
-
-    @Test
-    public void testIncludeEmptyAttributes() throws Exception {
-        assertTrue("Unexpected default value", instance.includeEmptyAttrs);
-
-        instance.includeEmptyAttrs = false;
-        instance.includeEmptyAttributes();
-
-        assertTrue(instance.includeEmptyAttrs);
-    }
-
-    @Test
-    public void testExcludeEmptyAttributes() throws Exception {
-        assertTrue("Unexpected default value", instance.includeEmptyAttrs);
-
-        instance.excludeEmptyAttributes();
-
-        assertFalse(instance.includeEmptyAttrs);
-    }
-
-    @Test
-    public void testEmptyObjectNameListsIncluded() throws Exception {
-        assertFalse("Unexpected default value", instance.includeEmptyLists);
-
-        instance.includeEmptyLists = true;
-
-        assertTrue(instance.emptyObjectNameListsIncluded());
-    }
-
-    @Test
-    public void testIncludeEmptyObjectNameLists() throws Exception {
-        assertFalse("Unexpected default value", instance.includeEmptyLists);
-
-        instance.includeEmptyObjectNameLists();
-
-        assertTrue(instance.includeEmptyLists);
-    }
-
-    @Test
-    public void testExcludeEmptyObjectNameLists() throws Exception {
-        assertFalse("Unexpected default value", instance.includeEmptyLists);
-
-        instance.includeEmptyLists = true;
-        instance.excludeEmptyObjectNameLists();
-
-        assertFalse(instance.includeEmptyLists);
-    }
-
-    @Test
     public void testGetSplunkClient() throws Exception {
         assertNull("Unexpected default value", instance.splunkClient);
 

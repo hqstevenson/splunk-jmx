@@ -33,16 +33,16 @@ import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
  */
 public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<AttributeList> {
 
-    boolean excludeZeroAttributeValues;
+    boolean includeZeroAttributes = true;
 
     Set<String> collectedAttributes = new HashSet<>();
 
-    public boolean isExcludeZeroAttributeValues() {
-        return excludeZeroAttributeValues;
+    public boolean isIncludeZeroAttributes() {
+        return includeZeroAttributes;
     }
 
-    public void setExcludeZeroAttributeValues(boolean excludeZeroAttributeValues) {
-        this.excludeZeroAttributeValues = excludeZeroAttributeValues;
+    public void setIncludeZeroAttributes(boolean includeZeroAttributes) {
+        this.includeZeroAttributes = includeZeroAttributes;
     }
 
     public boolean isCollectedAttribute(Attribute attribute) {
@@ -84,9 +84,9 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
         for (Object attributeObject : this.getEventBody()) {
             Attribute attribute = (Attribute) attributeObject;
             if (isCollectedAttribute(attribute)) {
-                addAttribute(eventBodyObject, attribute, false);
+                addAttribute(eventBodyObject, attribute, true);
             } else {
-                addAttribute(eventBodyObject, attribute, excludeZeroAttributeValues);
+                addAttribute(eventBodyObject, attribute, includeZeroAttributes);
             }
         }
 
@@ -108,7 +108,7 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
 
         if (sourceEventBuilder instanceof JmxAttributeListEventBuilder) {
             JmxAttributeListEventBuilder sourceJmxAttributeListEventBuilder = (JmxAttributeListEventBuilder) sourceEventBuilder;
-            this.excludeZeroAttributeValues = sourceJmxAttributeListEventBuilder.excludeZeroAttributeValues;
+            this.includeZeroAttributes = sourceJmxAttributeListEventBuilder.includeZeroAttributes;
             if (sourceJmxAttributeListEventBuilder.hasCollectedAttributes()) {
                 this.setCollectedAttributes(sourceJmxAttributeListEventBuilder.getCollectedAttributes());
             }
