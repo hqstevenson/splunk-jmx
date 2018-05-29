@@ -156,7 +156,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
                     if (tmpObjectName.isPattern()) {
                         Set<ObjectName> foundObjectNames = mbeanServer.queryNames(tmpObjectName, null);
                         if (foundObjectNames != null && !foundObjectNames.isEmpty()) {
-                            log.info("Found {} MBeans using ObjectName pattern {}", foundObjectNames.size(), tmpObjectName.getCanonicalName());
+                            log.debug("Found {} MBeans using ObjectName pattern {}", foundObjectNames.size(), tmpObjectName.getCanonicalName());
                             for (ObjectName foundObjectName : foundObjectNames) {
                                 mbeanNameMap.put(foundObjectName.getCanonicalName(), foundObjectName);
                             }
@@ -194,9 +194,9 @@ public class SplunkJmxNotificationListener implements NotificationListener {
         }
 
         if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
-            log.info("Added NotificationListener for {} MBeans", mbeanNameMap.size());
+            log.info("Added NotificationListener for {} MBeans: {}", mbeanNameMap.size(), mbeanNameMap.keySet());
         } else {
-            log.warn("No no listeners registered - no MBeans found using ObjectName(s): {}", sourceMBeanNames);
+            log.warn("No NotificationListener registered - no MBeans found using ObjectName(s): {}", sourceMBeanNames);
         }
     }
 
