@@ -26,6 +26,7 @@ import javax.management.AttributeList;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorInfo;
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 
 /**
@@ -45,6 +46,13 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
         this.includeZeroAttributes = includeZeroAttributes;
     }
 
+    /**
+     * Determine if an attribute is a collected attribute.
+     *
+     * @param attribute the {@link Attribute} to check
+     *
+     * @return true if the {@link Attribute} is a collected attribute; false otherwise
+     */
     public boolean isCollectedAttribute(Attribute attribute) {
         boolean answer = false;
 
@@ -63,6 +71,13 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
         return collectedAttributes;
     }
 
+    /**
+     * Set the list of collected attributes for this event builder.
+     *
+     * NOTE:  Collected attributes are NOT used in the change/difference detection.
+     *
+     * @param collectedAttributes the list of attributes to collect
+     */
     public void setCollectedAttributes(Set<String> collectedAttributes) {
         if (this.collectedAttributes != null) {
             this.collectedAttributes.clear();
@@ -75,22 +90,29 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
         }
     }
 
+    /**
+     * Add the body for the event to the map.
+     *
+     * @param map the map containing the event data.
+     */
     @Override
     protected void addEventBodyToMap(Map<String, Object> map) {
-        log.debug("{}.serializeBody() ...", this.getClass().getName());
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            log.debug("{}.serializeBody() ...", this.getClass().getName());
 
-        Map<String, Object> eventBodyObject = new HashMap<>();
+            Map<String, Object> eventBodyObject = new HashMap<>();
 
-        for (Object attributeObject : this.getEventBody()) {
-            Attribute attribute = (Attribute) attributeObject;
-            if (isCollectedAttribute(attribute)) {
-                addAttribute(eventBodyObject, attribute, true);
-            } else {
-                addAttribute(eventBodyObject, attribute, includeZeroAttributes);
+            for (Object attributeObject : this.getEventBody()) {
+                Attribute attribute = (Attribute) attributeObject;
+                if (isCollectedAttribute(attribute)) {
+                    addAttribute(eventBodyObject, attribute, true);
+                } else {
+                    addAttribute(eventBodyObject, attribute, includeZeroAttributes);
+                }
             }
-        }
 
-        map.put(EventCollectorInfo.EVENT_BODY_KEY, eventBodyObject);
+            map.put(EventCollectorInfo.EVENT_BODY_KEY, eventBodyObject);
+        }
     }
 
     @Override
@@ -114,4 +136,20 @@ public class JmxAttributeListEventBuilder extends JmxEventBuilderSupport<Attribu
             }
         }
     }
+
+    @Override
+    protected void appendConfiguration(StringBuilder builder) {
+        super.appendConfiguration(builder);
+
+        boolean includeZeroAttributes = true;
+
+        builder.append(" includeZeroAttributes='").append(includeZeroAttributes).append('\'');
+
+        if (hasCollectedAttributes()) {
+            builder.append(" collectedAttributes='").append(collectedAttributes).append('\'');
+        }
+
+        return;
+    }
+
 }

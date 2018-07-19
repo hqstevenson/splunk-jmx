@@ -24,6 +24,11 @@ import org.junit.Test;
 public class SplunkJmxNotificationListenerTest {
     SplunkJmxNotificationListener instance;
 
+    /**
+     * Setup the instance for the test.
+     *
+     * @throws Exception raised in the event of a test error
+     */
     @Before
     public void setUp() throws Exception {
         instance = new SplunkJmxNotificationListener();

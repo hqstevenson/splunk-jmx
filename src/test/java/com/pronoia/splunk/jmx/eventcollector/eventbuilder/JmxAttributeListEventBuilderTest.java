@@ -34,6 +34,11 @@ public class JmxAttributeListEventBuilderTest {
     JmxAttributeListEventBuilder instance;
     AttributeList eventBody;
 
+    /**
+     * Setup an event body for the tests.
+     *
+     * @throws Exception raised in the event of a test error
+     */
     @Before
     public void setUp() throws Exception {
         instance = new JmxAttributeListEventBuilder();
@@ -45,9 +50,9 @@ public class JmxAttributeListEventBuilderTest {
         eventBody.add(new Attribute("zeroAttribute", Integer.valueOf(0)));
 
         ObjectName[] objectNames = new ObjectName[] {
-            new ObjectName("edu.ucla.mednet", "key", "value1"),
-            new ObjectName("edu.ucla.mednet", "key", "value2"),
-            new ObjectName("edu.ucla.mednet", "key", "value3")
+                new ObjectName("edu.ucla.mednet", "key", "value1"),
+                new ObjectName("edu.ucla.mednet", "key", "value2"),
+                new ObjectName("edu.ucla.mednet", "key", "value3")
         };
 
     }
@@ -97,12 +102,12 @@ public class JmxAttributeListEventBuilderTest {
     public void testSerializeBodyWithEmptyAttributesDisabled() throws Exception {
         // @formatter:off
         final String expected
-            = "{event="
-            +   "{"
-            +     "zeroAttribute=0, "
-            +     "stringAttribute=stringAttributeValue"
-            +   "}"
-            +  "}";
+                = "{event="
+                +   "{"
+                +     "zeroAttribute=0, "
+                +     "stringAttribute=stringAttributeValue"
+                +   "}"
+                +  "}";
         // @formatter:on
 
         Map<String, Object> eventObject = new LinkedHashMap<>();
@@ -115,97 +120,98 @@ public class JmxAttributeListEventBuilderTest {
         assertEquals(expected, eventObject.toString());
     }
 
-  /*
-  @Test
-  public void testSerializeBodyWithEmptyListsEnabled() throws Exception {
-    // @formatter:off
-    final String expected
-        = "{"
-        +     "\"event\":"
-        +         "{"
-        +             "\"zeroAttribute\":\"0\","
-        +             "\"emptyStringAttribute\":\"\","
-        +             "\"objectNameList\":"
-        +                 "["
-        +                     "\"edu.ucla.mednet:key=value1\","
-        +                     "\"edu.ucla.mednet:key=value2\","
-        +                     "\"edu.ucla.mednet:key=value3\""
-        +                 "],"
-        +             "\"emptyObjectNameList\":[],"
-        +             "\"stringAttribute\":\"stringAttributeValue\","
-        +             "\"nullObjectNameList\":null,"
-        +             "\"nullStringAttribute\":null"
-        +         "}"
-        + "}";
-    // @formatter:on
+    /*
+      @Test
+      public void testSerializeBodyWithEmptyListsEnabled() throws Exception {
+        // @formatter:off
+        final String expected
+            = "{"
+            +     "\"event\":"
+            +         "{"
+            +             "\"zeroAttribute\":\"0\","
+            +             "\"emptyStringAttribute\":\"\","
+            +             "\"objectNameList\":"
+            +                 "["
+            +                     "\"edu.ucla.mednet:key=value1\","
+            +                     "\"edu.ucla.mednet:key=value2\","
+            +                     "\"edu.ucla.mednet:key=value3\""
+            +                 "],"
+            +             "\"emptyObjectNameList\":[],"
+            +             "\"stringAttribute\":\"stringAttributeValue\","
+            +             "\"nullObjectNameList\":null,"
+            +             "\"nullStringAttribute\":null"
+            +         "}"
+            + "}";
+        // @formatter:on
 
-    JSONObject jsonObject = new JSONObject();
+        JSONObject jsonObject = new JSONObject();
 
-    instance.setIncludeEmptyObjectNameLists(true);
+        instance.setIncludeEmptyObjectNameLists(true);
 
-    instance.event(eventBody);
-    instance.serializeBody(jsonObject);
+        instance.event(eventBody);
+        instance.serializeBody(jsonObject);
 
-    assertEquals(expected, jsonObject.toJSONString());
-  }
+        assertEquals(expected, jsonObject.toJSONString());
+      }
 
-  @Test
-  public void testSerializeBodyWithEmptyAttributesDisabledAndEmptyListsEnabled() throws Exception {
-    // @formatter:off
-    final String expected
-        = "{"
-        +     "\"event\":"
-        +         "{"
-        +             "\"objectNameList\":"
-        +                 "["
-        +                     "\"edu.ucla.mednet:key=value1\","
-        +                     "\"edu.ucla.mednet:key=value2\","
-        +                     "\"edu.ucla.mednet:key=value3\""
-        +                 "],"
-        +             "\"emptyObjectNameList\":[],"
-        +             "\"stringAttribute\":\"stringAttributeValue\""
-        +         "}"
-        + "}";
-    // @formatter:on
+      @Test
+      public void testSerializeBodyWithEmptyAttributesDisabledAndEmptyListsEnabled() throws Exception {
+        // @formatter:off
+        final String expected
+            = "{"
+            +     "\"event\":"
+            +         "{"
+            +             "\"objectNameList\":"
+            +                 "["
+            +                     "\"edu.ucla.mednet:key=value1\","
+            +                     "\"edu.ucla.mednet:key=value2\","
+            +                     "\"edu.ucla.mednet:key=value3\""
+            +                 "],"
+            +             "\"emptyObjectNameList\":[],"
+            +             "\"stringAttribute\":\"stringAttributeValue\""
+            +         "}"
+            + "}";
+        // @formatter:on
 
-    JSONObject jsonObject = new JSONObject();
+        JSONObject jsonObject = new JSONObject();
 
-    instance.setIncludeEmptyAttributes(false);
-    instance.setIncludeEmptyObjectNameLists(true);
+        instance.setIncludeEmptyAttributes(false);
+        instance.setIncludeEmptyObjectNameLists(true);
 
-    instance.event(eventBody);
-    instance.serializeBody(jsonObject);
+        instance.event(eventBody);
+        instance.serializeBody(jsonObject);
 
-    assertEquals(expected, jsonObject.toJSONString());
-  }
+        assertEquals(expected, jsonObject.toJSONString());
+      }
 
-  @Test
-  public void testSerializeBodyWithDefaults() throws Exception {
-    // @formatter:off
-    final String expected
-        = "{"
-        +     "\"event\":"
-        +         "{"
-        +             "\"zeroAttribute\":\"0\","
-        +             "\"emptyStringAttribute\":\"\","
-        +             "\"objectNameList\":"
-        +                 "["
-        +                     "\"edu.ucla.mednet:key=value1\","
-        +                     "\"edu.ucla.mednet:key=value2\","
-        +                     "\"edu.ucla.mednet:key=value3\""
-        +                 "],"
-        +             "\"stringAttribute\":\"stringAttributeValue\","
-        +             "\"nullObjectNameList\":null,"
-        +             "\"nullStringAttribute\":null"
-        +         "}"
-        + "}";
-    // @formatter:on
+      @Test
+      public void testSerializeBodyWithDefaults() throws Exception {
+        // @formatter:off
+        final String expected
+            = "{"
+            +     "\"event\":"
+            +         "{"
+            +             "\"zeroAttribute\":\"0\","
+            +             "\"emptyStringAttribute\":\"\","
+            +             "\"objectNameList\":"
+            +                 "["
+            +                     "\"edu.ucla.mednet:key=value1\","
+            +                     "\"edu.ucla.mednet:key=value2\","
+            +                     "\"edu.ucla.mednet:key=value3\""
+            +                 "],"
+            +             "\"stringAttribute\":\"stringAttributeValue\","
+            +             "\"nullObjectNameList\":null,"
+            +             "\"nullStringAttribute\":null"
+            +         "}"
+            + "}";
+        // @formatter:on
 
-    JSONObject jsonObject = new JSONObject();
+        JSONObject jsonObject = new JSONObject();
 
-    instance.event(eventBody);
-    instance.serializeBody(jsonObject);
+        instance.event(eventBody);
+        instance.serializeBody(jsonObject);
 
-    assertEquals(expected, jsonObject.toJSONString());
-  }*/
+        assertEquals(expected, jsonObject.toJSONString());
+      }
+      */
 }

@@ -26,6 +26,11 @@ import static org.junit.Assert.assertNotNull;
 public class SplunkJmxAttributeChangeMonitorJvmGCTest {
     SplunkJmxAttributeChangeMonitor instance;
 
+    /**
+     * Setup the instance for testing.
+     *
+     * @throws Exception raised in the event of a test error
+     */
     @Before
     public void setUp() throws Exception {
         instance = new SplunkJmxAttributeChangeMonitor();

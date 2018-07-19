@@ -63,6 +63,14 @@ public class LastAttributeInfo {
         this.resetSuppressionCount();
     }
 
+    /**
+     * Determine if the value of an attribute has changed.
+     *
+     * @param attributeName the name of the attribute
+     * @param newValue the new value of the attriute
+     *
+     * @return true if the value of the attribute has changed; false otherwise
+     */
     public boolean hasValueChanged(String attributeName, Object newValue) {
         boolean returnValue = false;
 

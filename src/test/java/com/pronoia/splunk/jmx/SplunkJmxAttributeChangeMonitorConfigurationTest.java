@@ -70,6 +70,11 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     Set<String> attributeSet = new TreeSet<>();
     Set<String> combinedAttributeSet = new TreeSet<>();
 
+    /**
+     * Setup the instance for testing.
+     *
+     * @throws Exception raised in the event of a test error
+     */
     @Before
     public void setUp() throws Exception {
         instance = new SplunkJmxAttributeChangeMonitor();

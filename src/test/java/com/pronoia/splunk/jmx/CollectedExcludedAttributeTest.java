@@ -19,9 +19,10 @@ package com.pronoia.splunk.jmx;
 import java.util.Set;
 import java.util.TreeSet;
 
-import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.junit.Test;
 
 public class CollectedExcludedAttributeTest {
     Logger log = LoggerFactory.getLogger(this.getClass());
@@ -30,6 +31,13 @@ public class CollectedExcludedAttributeTest {
     Set<String> excludedObservedAttributes = new TreeSet<>();
     Set<String> collectedAttributes = new TreeSet<>();
 
+    /**
+     * Determine whether or not an attribute should be added to the observed attributes.
+     *
+     * @param attributeName the name of the attribute to check
+     *
+     * @return true if the attribute can be included in the observerd attributes; false otherwise
+     */
     public boolean canAddToObservedAttributes(String attributeName) {
         boolean canAdd = true;
         if (excludedObservedAttributes.contains(attributeName)) {

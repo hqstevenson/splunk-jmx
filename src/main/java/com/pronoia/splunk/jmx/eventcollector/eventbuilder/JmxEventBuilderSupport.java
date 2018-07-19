@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,6 +30,7 @@ import javax.management.openmbean.SimpleType;
 import javax.management.openmbean.TabularData;
 import javax.management.openmbean.TabularType;
 
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 import com.pronoia.splunk.eventcollector.eventbuilder.JacksonEventBuilderSupport;
 
@@ -124,21 +125,23 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
         if (jsonObject == null) {
             throw new NullPointerException("The JSONObject argument cannot be null");
         }
-        for (String key : compositeData.getCompositeType().keySet()) {
-            Object value = compositeData.get(key);
-            if (value instanceof CompositeData) {
-                log.trace("Processing CompositeData nested in CompositeData for {} : {}", key, value);
-                jsonObject.put(key, createCompositeDataJSON((CompositeData) value));
-            } else if (value instanceof TabularData) {
-                log.trace("Processing TabularData nested in CompositeData for {} : {}", key, value);
-                jsonObject.put(key, createTabularDataJSON((TabularData) value));
-            } else if (value instanceof SimpleType) {
-                log.trace("Processing SimpleType nested in CompositeData for {} : {}", key, value);
-                addSimpleType(jsonObject, key, (SimpleType) value);
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            for (String key : compositeData.getCompositeType().keySet()) {
+                Object value = compositeData.get(key);
+                if (value instanceof CompositeData) {
+                    log.trace("Processing CompositeData nested in CompositeData for {} : {}", key, value);
+                    jsonObject.put(key, createCompositeDataJSON((CompositeData) value));
+                } else if (value instanceof TabularData) {
+                    log.trace("Processing TabularData nested in CompositeData for {} : {}", key, value);
+                    jsonObject.put(key, createTabularDataJSON((TabularData) value));
+                } else if (value instanceof SimpleType) {
+                    log.trace("Processing SimpleType nested in CompositeData for {} : {}", key, value);
+                    addSimpleType(jsonObject, key, (SimpleType) value);
 
-            } else {
-                log.trace("Processing Nested {} for {} : {}", value.getClass().getName(), key, value);
-                jsonObject.put(key, value);
+                } else {
+                    log.trace("Processing Nested {} for {} : {}", value.getClass().getName(), key, value);
+                    jsonObject.put(key, value);
+                }
             }
         }
     }
@@ -184,104 +187,115 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
         List<String> indexNames = tabularType.getIndexNames();
         int counter = 0;
 
-        for (CompositeData tabularDataRowValue : (Collection<CompositeData>) tabularData.values()) {
-            counter++;
-            // Build the JSON Object key
-            log.trace("Building JSON Key for {}", counter);
-            String jsonKey;
-            Object[] keyValues = tabularDataRowValue.getAll(indexNames.toArray(new String[indexNames.size()]));
-            if (keyValues != null && keyValues.length > 0) {
-                switch (keyValues.length) {
-                case 1:
-                    jsonKey = keyValues[0].toString();
-                    break;
-                default:
-                    StringBuilder jsonKeyBuilder = new StringBuilder(keyValues[0].toString());
-                    for (int i = 1; i < keyValues.length; ++i) {
-                        jsonKeyBuilder.append('-').append(keyValues[i].toString());
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            for (CompositeData tabularDataRowValue : (Collection<CompositeData>) tabularData.values()) {
+                counter++;
+                // Build the JSON Object key
+                log.trace("Building JSON Key for {}", counter);
+                String jsonKey;
+                Object[] keyValues = tabularDataRowValue.getAll(indexNames.toArray(new String[indexNames.size()]));
+                if (keyValues != null && keyValues.length > 0) {
+                    switch (keyValues.length) {
+                        case 1:
+                            jsonKey = keyValues[0].toString();
+                            break;
+                        default:
+                            StringBuilder jsonKeyBuilder = new StringBuilder(keyValues[0].toString());
+                            for (int i = 1; i < keyValues.length; ++i) {
+                                jsonKeyBuilder.append('-').append(keyValues[i].toString());
+                            }
+                            jsonKey = jsonKeyBuilder.toString();
                     }
-                    jsonKey = jsonKeyBuilder.toString();
-                }
-            } else {
-                jsonKey = Integer.toString(counter);
-            }
-
-            // Build the JSON Object Value
-            log.trace("Building JSON Value for {} ({})", counter, jsonKey);
-            Map<String, Object> compositeDataObject = new HashMap<>();
-            for (String key : tabularDataRowValue.getCompositeType().keySet()) {
-                if (indexNames.contains(key)) {
-                    log.trace("Found index key - skipping: {}", key);
                 } else {
-                    log.trace("Processing key: {}", key);
-                    Object columnValue = tabularDataRowValue.get(key);
-                    if (columnValue instanceof TabularData) {
-                        addTabularData(jsonObject, (TabularData) columnValue);
-                    } else if (columnValue instanceof CompositeData) {
-                        addCompositeData(compositeDataObject, (CompositeData) columnValue);
-                    } else if (columnValue instanceof SimpleType) {
-                        addSimpleType(compositeDataObject, key, (SimpleType) columnValue);
+                    jsonKey = Integer.toString(counter);
+                }
+
+                // Build the JSON Object Value
+                log.trace("Building JSON Value for {} ({})", counter, jsonKey);
+                Map<String, Object> compositeDataObject = new HashMap<>();
+                for (String key : tabularDataRowValue.getCompositeType().keySet()) {
+                    if (indexNames.contains(key)) {
+                        log.trace("Found index key - skipping: {}", key);
                     } else {
-                        compositeDataObject.put(key, columnValue);
+                        log.trace("Processing key: {}", key);
+                        Object columnValue = tabularDataRowValue.get(key);
+                        if (columnValue instanceof TabularData) {
+                            addTabularData(jsonObject, (TabularData) columnValue);
+                        } else if (columnValue instanceof CompositeData) {
+                            addCompositeData(compositeDataObject, (CompositeData) columnValue);
+                        } else if (columnValue instanceof SimpleType) {
+                            addSimpleType(compositeDataObject, key, (SimpleType) columnValue);
+                        } else {
+                            compositeDataObject.put(key, columnValue);
+                        }
                     }
                 }
-            }
 
-            // Add the value to the JSON tabular data
-            log.trace("Adding row {} : {}", jsonKey, compositeDataObject);
-            jsonObject.put(jsonKey, compositeDataObject);
+                // Add the value to the JSON tabular data
+                log.trace("Adding row {} : {}", jsonKey, compositeDataObject);
+                jsonObject.put(jsonKey, compositeDataObject);
+            }
         }
     }
 
+    /**
+     * Add the value of an {@link Attribute} to the event Map that will be used to generate the JSON.
+     *
+     * @param jsonObject the Map to add the {@link Attribute} value
+     * @param attribute the {@link Attribute} to add
+     * @param includeAttributeWithValueOfZero flag to control inclusion of values that evaluate to '0'
+     */
     public void addAttribute(Map<String, Object> jsonObject, Attribute attribute, boolean includeAttributeWithValueOfZero) {
-        log.debug("{}.serializeBody() ...", this.getClass().getName());
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            log.debug("{}.serializeBody() ...", this.getClass().getName());
 
-        String attributeName = attribute.getName();
-        Object attributeValue = attribute.getValue();
+            String attributeName = attribute.getName();
+            Object attributeValue = attribute.getValue();
 
-        log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
+            log.trace("Collecting attribute {} = {}", attributeName, attributeValue);
 
-        if (attributeValue == null) {
-            if (includeNullAttributes) {
-                jsonObject.put(attributeName, attributeValue);
-            } else {
-                log.debug("Excluding attribute {} with null value", attributeName);
-            }
-        } else if (attributeValue instanceof ObjectName) {
-            ObjectName objectName = (ObjectName) attributeValue;
-            jsonObject.put(attributeName, objectName.getCanonicalName());
-        } else if (attributeValue instanceof ObjectName[]) {
-            ObjectName[] objectNames = (ObjectName[]) attributeValue;
-            if (objectNames.length > 0) {
-                List<String> objectNameList = new LinkedList<>();
-                for (ObjectName objectName : objectNames) {
-                    objectNameList.add(objectName.toString());
-                }
-                jsonObject.put(attributeName, objectNameList);
-            } else if (includeEmptyObjectNameLists) {
-                jsonObject.put(attributeName, new LinkedList<>());
-            } else {
-                log.debug("Excluding empty list attribute {}", attributeName);
-            }
-        } else if (attributeValue instanceof CompositeDataSupport) {
-            CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
-            Map<String, Object> compositeDataObject = new HashMap<>();
-            for (String key : compositeDataSupport.getCompositeType().keySet()) {
-                compositeDataObject.put(key, compositeDataSupport.get(key));
-            }
-            jsonObject.put(attributeName, compositeDataObject);
-        } else {
-            String attributeValueAsString = attributeValue.toString();
-            if (attributeValueAsString.isEmpty()) {
-                if (includeEmptyAttributes) {
+            if (attributeValue == null) {
+                if (includeNullAttributes) {
                     jsonObject.put(attributeName, attributeValue);
                 } else {
-                    log.debug("Ignoring empty string value for attribute {}", attributeName);
+                    log.debug("Excluding attribute {} with null value", attributeName);
                 }
-            } else if (!includeAttributeWithValueOfZero && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
-                log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
+            } else if (attributeValue instanceof ObjectName) {
+                ObjectName objectName = (ObjectName) attributeValue;
+                jsonObject.put(attributeName, objectName.getCanonicalName());
+            } else if (attributeValue instanceof ObjectName[]) {
+                ObjectName[] objectNames = (ObjectName[]) attributeValue;
+                if (objectNames.length > 0) {
+                    List<String> objectNameList = new LinkedList<>();
+                    for (ObjectName objectName : objectNames) {
+                        objectNameList.add(objectName.toString());
+                    }
+                    jsonObject.put(attributeName, objectNameList);
+                } else if (includeEmptyObjectNameLists) {
+                    jsonObject.put(attributeName, new LinkedList<>());
+                } else {
+                    log.debug("Excluding empty list attribute {}", attributeName);
+                }
+            } else if (attributeValue instanceof CompositeDataSupport) {
+                CompositeDataSupport compositeDataSupport = (CompositeDataSupport) attributeValue;
+                Map<String, Object> compositeDataObject = new HashMap<>();
+                for (String key : compositeDataSupport.getCompositeType().keySet()) {
+                    compositeDataObject.put(key, compositeDataSupport.get(key));
+                }
+                jsonObject.put(attributeName, compositeDataObject);
             } else {
-                jsonObject.put(attributeName, attributeValue);
+                String attributeValueAsString = attributeValue.toString();
+                if (attributeValueAsString.isEmpty()) {
+                    if (includeEmptyAttributes) {
+                        jsonObject.put(attributeName, attributeValue);
+                    } else {
+                        log.debug("Ignoring empty string value for attribute {}", attributeName);
+                    }
+                } else if (!includeAttributeWithValueOfZero && (attributeValueAsString.equals("0") || attributeValueAsString.equals("0.0"))) {
+                    log.debug("Ignoring zero value for attribute {} = {}", attributeName, attributeValueAsString);
+                } else {
+                    jsonObject.put(attributeName, attributeValue);
+                }
             }
         }
     }
@@ -296,5 +310,17 @@ public abstract class JmxEventBuilderSupport<E> extends JacksonEventBuilderSuppo
             this.includeEmptyAttributes = sourceJmxEventBuilderSupport.includeEmptyAttributes;
             this.includeEmptyObjectNameLists = sourceJmxEventBuilderSupport.isIncludeEmptyObjectNameLists();
         }
+    }
+
+    @Override
+    protected void appendConfiguration(StringBuilder builder) {
+        super.appendConfiguration(builder);
+
+        builder.append(" includeNullAttributes='").append(includeNullAttributes).append('\'')
+            .append(" includeEmptyAttributes='").append(includeEmptyAttributes).append('\'')
+            .append(" includeEmptyObjectNameLists='").append(includeEmptyObjectNameLists).append('\'');
+
+
+        return;
     }
 }

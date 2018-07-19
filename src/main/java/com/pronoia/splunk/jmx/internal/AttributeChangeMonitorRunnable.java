@@ -42,11 +42,14 @@ import javax.management.ReflectionException;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.jmx.SplunkJmxAttributeChangeMonitor;
 import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxAttributeListEventBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+
 
 public class AttributeChangeMonitorRunnable implements Runnable {
     final ObjectName queryObjectNamePattern;
@@ -63,6 +66,12 @@ public class AttributeChangeMonitorRunnable implements Runnable {
 
     volatile ConcurrentMap<String, LastAttributeInfo> lastAttributes = new ConcurrentHashMap<>();
 
+    /**
+     * Constructor for creating a runnable from the parent change monitor.
+     *
+     * @param attributeChangeMonitor the parent attribute change monitor
+     * @param queryObjectNamePattern the JMX ObjectName pattern for the runnable
+     */
     public AttributeChangeMonitorRunnable(SplunkJmxAttributeChangeMonitor attributeChangeMonitor, ObjectName queryObjectNamePattern) {
         this.queryObjectNamePattern = queryObjectNamePattern;
         this.cachedAttributeArray = attributeChangeMonitor.getCachedAttributeArray();
@@ -75,41 +84,48 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         if (attributeChangeMonitor.hasSplunkEventBuilder()) {
             splunkEventBuilder = attributeChangeMonitor.getSplunkEventBuilder().duplicate();
         } else {
-            log.debug("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}", queryObjectNamePattern.getCanonicalName(), JmxAttributeListEventBuilder.class.getName());
             JmxAttributeListEventBuilder tmpEventBuilder = new JmxAttributeListEventBuilder();
 
             tmpEventBuilder.setCollectedAttributes(collectedAttributes);
 
             splunkEventBuilder = tmpEventBuilder;
+
+            log.debug("Splunk EventBuilder not specified for JMX ObjectName {} - using default {}",
+                    queryObjectNamePattern.getCanonicalName(), splunkEventBuilder.getClass().getName());
         }
     }
 
     @Override
     public synchronized void run() {
-        log.debug("run() started for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            log.debug("run() started for JMX ObjectName {}", queryObjectNamePattern);
 
-        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-        Set<ObjectName> objectNameSet = mbeanServer.queryNames(queryObjectNamePattern, null);
-        for (ObjectName objectName : objectNameSet) {
-            try {
-                collectAttributes(mbeanServer, objectName);
-            } catch (EventDeliveryException eventDeliveryEx) {
-                String errorMessage = String.format("Failed to deliver event %s[%s]: %s",
-                    queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent());
-                log.error(errorMessage, eventDeliveryEx);
-            } catch (InstanceNotFoundException | ReflectionException | IntrospectionException jmxEx) {
-                String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]", jmxEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
-                log.warn(errorMessage, jmxEx);
-            } catch (Throwable unexpectedEx) {
-                String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]", unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
-                log.warn(errorMessage, unexpectedEx);
+            MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            Set<ObjectName> objectNameSet = mbeanServer.queryNames(queryObjectNamePattern, null);
+            for (ObjectName objectName : objectNameSet) {
+                try {
+                    collectAttributes(mbeanServer, objectName);
+                } catch (EventDeliveryException eventDeliveryEx) {
+                    String errorMessage = String.format("Failed to deliver event %s[%s]: %s",
+                            queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent());
+                    log.error(errorMessage, eventDeliveryEx);
+                } catch (InstanceNotFoundException | ReflectionException | IntrospectionException jmxEx) {
+                    String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]",
+                            jmxEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
+                    log.warn(errorMessage, jmxEx);
+                } catch (Throwable unexpectedEx) {
+                    String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]",
+                            unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
+                    log.warn(errorMessage, unexpectedEx);
+                }
             }
-        }
 
-        log.debug("run() completed for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
+            log.debug("run() completed for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
+        }
     }
 
-    synchronized void collectAttributes(MBeanServer mbeanServer, ObjectName objectName) throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
+    synchronized void collectAttributes(MBeanServer mbeanServer, ObjectName objectName)
+            throws IntrospectionException, InstanceNotFoundException, ReflectionException, EventDeliveryException {
         splunkEventBuilder.clearFields();
         Hashtable<String, String> objectNameProperties = objectName.getKeyPropertyList();
         for (String propertyName : objectNameProperties.keySet()) {
@@ -117,96 +133,100 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         }
         String objectNameString = objectName.getCanonicalName();
         String[] queriedAttributeNameArray;
-        if (cachedAttributeArray != null) {
-            log.debug("Using cachedAttributeArray for : {}", Arrays.toString(cachedAttributeArray));
-            queriedAttributeNameArray = cachedAttributeArray;
-        } else {
-            // Attributes were not specified - look at all of them
-            MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
-            MBeanAttributeInfo[] attributeInfoArray = mbeanInfo.getAttributes();
-            List<String> queriedAttributeNameList = new LinkedList<>();
+        try (SplunkMDCHelper helper = createMdcHelper()) {
 
-            for (MBeanAttributeInfo attributeInfo : attributeInfoArray) {
-                String attributeName = attributeInfo.getName();
-                if (excludedObservedAttributes != null && excludedObservedAttributes.contains(attributeName)) {
-                    if (collectedAttributes != null && collectedAttributes.contains(attributeName)) {
-                        // Keep the collected value if specified
+            if (cachedAttributeArray != null) {
+                log.debug("Using cachedAttributeArray for : {}", Arrays.toString(cachedAttributeArray));
+                queriedAttributeNameArray = cachedAttributeArray;
+            } else {
+                // Attributes were not specified - look at all of them
+                MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
+                MBeanAttributeInfo[] attributeInfoArray = mbeanInfo.getAttributes();
+                List<String> queriedAttributeNameList = new LinkedList<>();
+
+                for (MBeanAttributeInfo attributeInfo : attributeInfoArray) {
+                    String attributeName = attributeInfo.getName();
+                    if (excludedObservedAttributes != null && excludedObservedAttributes.contains(attributeName)) {
+                        if (collectedAttributes != null && collectedAttributes.contains(attributeName)) {
+                            // Keep the collected value if specified
+                            queriedAttributeNameList.add(attributeName);
+                        }
+                    } else {
                         queriedAttributeNameList.add(attributeName);
                     }
-                } else {
-                    queriedAttributeNameList.add(attributeName);
                 }
+
+                queriedAttributeNameArray = new String[queriedAttributeNameList.size()];
+                queriedAttributeNameArray = queriedAttributeNameList.toArray(queriedAttributeNameArray);
+
+                log.debug("Using queriedAttributeNameArray: {}", Arrays.toString(queriedAttributeNameArray));
             }
 
-            queriedAttributeNameArray = new String[queriedAttributeNameList.size()];
-            queriedAttributeNameArray = queriedAttributeNameList.toArray(queriedAttributeNameArray);
-
-            log.debug("Using queriedAttributeNameArray: {}", Arrays.toString(queriedAttributeNameArray));
-        }
-
-        log.debug("Retrieving Attributes for '{}'", objectNameString);
-        AttributeList attributeList = mbeanServer.getAttributes(objectName, queriedAttributeNameArray);
-        splunkEventBuilder.timestamp();
-        if (attributeList == null) {
-            log.warn("MBeanServer.getAttributes( {}, {} ) returned null", objectName, queriedAttributeNameArray);
-        } else if (attributeList.isEmpty()) {
-            final String warningMessage = "MBeanServer.getAttributes( {}, {} ) returned an empty AttributeList";
-            log.warn(warningMessage, objectName, queriedAttributeNameArray);
-        } else {
-            log.debug("Building attribute Map of {} attributes for {}", attributeList.size(), objectName);
-            Map<String, Object> attributeMap = buildAttributeMap(attributeList);
-
-            log.debug("Determining monitored attribute set");
-            Set<String> monitoredAttributeNames;
-            if (observedAttributes != null && !observedAttributes.isEmpty()) {
-                monitoredAttributeNames = observedAttributes;
+            log.debug("Retrieving Attributes for '{}'", objectNameString);
+            AttributeList attributeList = mbeanServer.getAttributes(objectName, queriedAttributeNameArray);
+            splunkEventBuilder.timestamp();
+            if (attributeList == null) {
+                log.warn("MBeanServer.getAttributes( {}, {} ) returned null", objectName, queriedAttributeNameArray);
+            } else if (attributeList.isEmpty()) {
+                final String warningMessage = "MBeanServer.getAttributes( {}, {} ) returned an empty AttributeList";
+                log.warn(warningMessage, objectName, queriedAttributeNameArray);
             } else {
-                monitoredAttributeNames = attributeMap.keySet();
-                if (excludedObservedAttributes != null && !excludedObservedAttributes.isEmpty()) {
-                    log.trace("Excluding attributes: {}", excludedObservedAttributes);
-                    monitoredAttributeNames.removeAll(excludedObservedAttributes);
+                log.debug("Building attribute Map of {} attributes for {}", attributeList.size(), objectName);
+                Map<String, Object> attributeMap = buildAttributeMap(attributeList);
+
+                log.debug("Determining monitored attribute set");
+                Set<String> monitoredAttributeNames;
+                if (observedAttributes != null && !observedAttributes.isEmpty()) {
+                    monitoredAttributeNames = observedAttributes;
+                } else {
+                    monitoredAttributeNames = attributeMap.keySet();
+                    if (excludedObservedAttributes != null && !excludedObservedAttributes.isEmpty()) {
+                        log.trace("Excluding attributes: {}", excludedObservedAttributes);
+                        monitoredAttributeNames.removeAll(excludedObservedAttributes);
+                    }
                 }
-            }
 
-            log.debug("Monitored attribute set: {}", monitoredAttributeNames);
+                log.debug("Monitored attribute set: {}", monitoredAttributeNames);
 
-            LastAttributeInfo lastAttributeInfo;
-            if (lastAttributes.containsKey(objectNameString)) {
-                lastAttributeInfo = lastAttributes.get(objectNameString);
-                synchronized (lastAttributeInfo) {
-                    log.debug("Last attribute info found for {} [{}]- Checking for attribute change", objectNameString, lastAttributeInfo.getSuppressionCount());
-                    for (String attributeName : monitoredAttributeNames) {
-                        if (lastAttributeInfo.hasValueChanged(attributeName, attributeMap.get(attributeName))) {
-                            log.debug("Found change in attribute {} for {} - sending event", objectNameString, attributeName);
-                            lastAttributeInfo.setAttributeMap(attributeMap);
+                LastAttributeInfo lastAttributeInfo;
+                if (lastAttributes.containsKey(objectNameString)) {
+                    lastAttributeInfo = lastAttributes.get(objectNameString);
+                    synchronized (lastAttributeInfo) {
+                        log.debug("Last attribute info found for {} [{}]- Checking for attribute change",
+                                objectNameString, lastAttributeInfo.getSuppressionCount());
+                        for (String attributeName : monitoredAttributeNames) {
+                            if (lastAttributeInfo.hasValueChanged(attributeName, attributeMap.get(attributeName))) {
+                                log.debug("Found change in attribute {} for {} - sending event", objectNameString, attributeName);
+                                lastAttributeInfo.setAttributeMap(attributeMap);
+                                splunkEventBuilder.source(objectNameString).eventBody(attributeList);
+                                splunkClient.sendEvent(splunkEventBuilder.build());
+                                lastAttributes.put(objectNameString, lastAttributeInfo);
+                                return;
+                            }
+                        }
+
+                        if (maxSuppressedDuplicates > 0 && lastAttributeInfo.getSuppressionCount() <= maxSuppressedDuplicates) {
+                            lastAttributeInfo.incrementSuppressionCount();
+                            log.debug("Duplicate monitored attribute values encountered for {} - suppressed {} of {} time(s)",
+                                    objectNameString, lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates);
+                        } else {
+                            log.debug("Max suppressed duplicates [{} - {}] exceeded for {}  - sending event",
+                                    lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates, objectNameString);
+                            lastAttributeInfo.resetSuppressionCount();
                             splunkEventBuilder.source(objectNameString).eventBody(attributeList);
                             splunkClient.sendEvent(splunkEventBuilder.build());
                             lastAttributes.put(objectNameString, lastAttributeInfo);
                             return;
                         }
                     }
-
-                    if (maxSuppressedDuplicates > 0 && lastAttributeInfo.getSuppressionCount() <= maxSuppressedDuplicates) {
-                        lastAttributeInfo.incrementSuppressionCount();
-                        log.debug("Duplicate monitored attribute values encountered for {} - suppressed {} of {} time(s)",
-                            objectNameString, lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates);
-                    } else {
-                        log.debug("Max suppressed duplicates [{} - {}] exceeded for {}  - sending event",
-                            lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates, objectNameString);
-                        lastAttributeInfo.resetSuppressionCount();
-                        splunkEventBuilder.source(objectNameString).eventBody(attributeList);
-                        splunkClient.sendEvent(splunkEventBuilder.build());
-                        lastAttributes.put(objectNameString, lastAttributeInfo);
-                        return;
-                    }
+                } else {
+                    log.debug("First invocation for {} - creating last attribute info and posting payload for first object", objectNameString);
+                    lastAttributeInfo = new LastAttributeInfo(objectNameString);
+                    lastAttributeInfo.setAttributeMap(attributeMap);
+                    lastAttributes.put(objectNameString, lastAttributeInfo);
+                    splunkEventBuilder.source(objectNameString).eventBody(attributeList);
+                    splunkClient.sendEvent(splunkEventBuilder.build());
                 }
-            } else {
-                log.debug("First invocation for {} - creating last attribute info and posting payload for first object", objectNameString);
-                lastAttributeInfo = new LastAttributeInfo(objectNameString);
-                lastAttributeInfo.setAttributeMap(attributeMap);
-                lastAttributes.put(objectNameString, lastAttributeInfo);
-                splunkEventBuilder.source(objectNameString).eventBody(attributeList);
-                splunkClient.sendEvent(splunkEventBuilder.build());
             }
         }
     }
@@ -219,6 +239,19 @@ public class AttributeChangeMonitorRunnable implements Runnable {
         }
 
         return newAttributeMap;
+    }
+
+    protected SplunkMDCHelper createMdcHelper() {
+        return new AttributeChangeMonitorRunnableMACHelper();
+    }
+
+    class AttributeChangeMonitorRunnableMACHelper extends SplunkMDCHelper {
+        public static final String MDC_JMX_MONITOR_SOURCE_MEANS = "splunk.jmx.monitor.source";
+
+        public AttributeChangeMonitorRunnableMACHelper() {
+            addEventBuilderValues(splunkEventBuilder);
+            MDC.put(MDC_JMX_MONITOR_SOURCE_MEANS, queryObjectNamePattern.getCanonicalName());
+        }
     }
 
 }

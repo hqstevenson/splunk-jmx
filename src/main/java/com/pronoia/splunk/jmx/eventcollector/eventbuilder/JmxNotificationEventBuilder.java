@@ -165,4 +165,18 @@ public class JmxNotificationEventBuilder extends JmxEventBuilderSupport<Notifica
             this.includeUserData = sourceJmxNotificationEventBuilder.includeUserData;
         }
     }
+
+    @Override
+    protected void appendConfiguration(StringBuilder builder) {
+        super.appendConfiguration(builder);
+
+        builder.append(" includeNotificationMessage='").append(includeNotificationMessage).append('\'')
+            .append(" includeNotificationSequenceNumber='").append(includeNotificationSequenceNumber).append('\'')
+            .append(" includeNotificationSource='").append(includeNotificationSource).append('\'')
+            .append(" includeNotificationType='").append(includeNotificationType).append('\'')
+            .append(" includeUserData='").append(includeUserData).append('\'');
+
+        return;
+    }
+
 }

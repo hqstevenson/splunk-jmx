@@ -34,10 +34,12 @@ import javax.management.ObjectName;
 import com.pronoia.splunk.eventcollector.EventBuilder;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
+import com.pronoia.splunk.eventcollector.SplunkMDCHelper;
 import com.pronoia.splunk.jmx.eventcollector.eventbuilder.JmxNotificationEventBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 
 /**
@@ -56,6 +58,15 @@ public class SplunkJmxNotificationListener implements NotificationListener {
 
     EventCollectorClient splunkClient;
     EventBuilder<Notification> splunkEventBuilder;
+
+    /**
+     * Determine if there are any MBean Names configured for monitoring.
+     *
+     * @return true if at least one MBean has been configured for monitoring.
+     */
+    public boolean hasSourceMBeans() {
+        return sourceMBeanNames != null && !sourceMBeanNames.isEmpty();
+    }
 
     /**
      * Get the MBean Names (as Strings) that will be monitored.
@@ -125,7 +136,8 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     /**
      * Set the {@link EventBuilder} to use.
      *
-     * If an event builder is not configured, a default {@link JmxNotificationEventBuilder} will be created and configured using the properties of the notification listener.
+     * If an event builder is not configured, a default {@link JmxNotificationEventBuilder} will be created and configured
+     * using the properties of the notification listener.
      *
      * @param splunkEventBuilder The {@link EventBuilder} to use.
      */
@@ -147,56 +159,58 @@ public class SplunkJmxNotificationListener implements NotificationListener {
 
         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
 
-        // Determine the actual source ObjectNames from the String values
-        if (sourceMBeanNames != null && !sourceMBeanNames.isEmpty()) {
-            mbeanNameMap = new HashMap<>();
-            for (String objectNameString : sourceMBeanNames) {
-                try {
-                    ObjectName tmpObjectName = new ObjectName(objectNameString);
-                    if (tmpObjectName.isPattern()) {
-                        Set<ObjectName> foundObjectNames = mbeanServer.queryNames(tmpObjectName, null);
-                        if (foundObjectNames != null && !foundObjectNames.isEmpty()) {
-                            log.debug("Found {} MBeans using ObjectName pattern {}", foundObjectNames.size(), tmpObjectName.getCanonicalName());
-                            for (ObjectName foundObjectName : foundObjectNames) {
-                                mbeanNameMap.put(foundObjectName.getCanonicalName(), foundObjectName);
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            // Determine the actual source ObjectNames from the String values
+            if (sourceMBeanNames != null && !sourceMBeanNames.isEmpty()) {
+                mbeanNameMap = new HashMap<>();
+                for (String objectNameString : sourceMBeanNames) {
+                    try {
+                        ObjectName tmpObjectName = new ObjectName(objectNameString);
+                        if (tmpObjectName.isPattern()) {
+                            Set<ObjectName> foundObjectNames = mbeanServer.queryNames(tmpObjectName, null);
+                            if (foundObjectNames != null && !foundObjectNames.isEmpty()) {
+                                log.debug("Found {} MBeans using ObjectName pattern {}", foundObjectNames.size(), tmpObjectName.getCanonicalName());
+                                for (ObjectName foundObjectName : foundObjectNames) {
+                                    mbeanNameMap.put(foundObjectName.getCanonicalName(), foundObjectName);
+                                }
+                            } else {
+                                log.warn("No MBeans found using ObjectName pattern {}", tmpObjectName.getCanonicalName());
                             }
                         } else {
-                            log.warn("No MBeans found using ObjectName pattern {}", tmpObjectName.getCanonicalName());
+                            mbeanNameMap.put(tmpObjectName.getCanonicalName(), tmpObjectName);
                         }
-                    } else {
-                        mbeanNameMap.put(tmpObjectName.getCanonicalName(), tmpObjectName);
+                    } catch (MalformedObjectNameException objectNameEx) {
+                        log.error("Invalid ObjectName or pattern encountered in validated ObjectName set - ignoring: {}", objectNameString);
                     }
-                } catch (MalformedObjectNameException objectNameEx) {
-                    log.error("Invalid ObjectName or pattern encountered in validated ObjectName set - ignoring: {}", objectNameString);
                 }
-            }
 
-            if (mbeanNameMap.isEmpty()) {
-                log.warn("No no listeners registered - no valid ObjectNames were specified or found from ObjectName patterns: {}", sourceMBeanNames);
-                mbeanNameMap = null;
+                if (mbeanNameMap.isEmpty()) {
+                    log.warn("No no listeners registered - no valid ObjectNames were specified or found from ObjectName patterns: {}", sourceMBeanNames);
+                    mbeanNameMap = null;
+                    return;
+                }
+            } else {
+                log.warn("No no listeners registered - no valid ObjectNames were specified");
                 return;
             }
-        } else {
-            log.warn("No no listeners registered - no valid ObjectNames were specified");
-            return;
-        }
 
-        if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
-            // Register a listener for each ObjectName
-            for (String canonicalName : mbeanNameMap.keySet()) {
-                try {
-                    mbeanServer.addNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
-                } catch (InstanceNotFoundException instanceNotFoundEx) {
-                    log.warn(String.format("Failed to add listener for MBean %s", canonicalName), instanceNotFoundEx);
-                    mbeanNameMap.remove(canonicalName);
+            if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
+                // Register a listener for each ObjectName
+                for (String canonicalName : mbeanNameMap.keySet()) {
+                    try {
+                        mbeanServer.addNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
+                    } catch (InstanceNotFoundException instanceNotFoundEx) {
+                        log.warn(String.format("Failed to add listener for MBean %s", canonicalName), instanceNotFoundEx);
+                        mbeanNameMap.remove(canonicalName);
+                    }
                 }
             }
-        }
 
-        if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
-            log.info("Added NotificationListener for {} MBeans: {}", mbeanNameMap.size(), mbeanNameMap.keySet());
-        } else {
-            log.warn("No NotificationListener registered - no MBeans found using ObjectName(s): {}", sourceMBeanNames);
+            if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
+                log.info("Added NotificationListener for {} MBeans: {}", mbeanNameMap.size(), mbeanNameMap.keySet());
+            } else {
+                log.warn("No NotificationListener registered - no MBeans found using ObjectName(s): {}", sourceMBeanNames);
+            }
         }
     }
 
@@ -204,13 +218,15 @@ public class SplunkJmxNotificationListener implements NotificationListener {
      * Stop the JMX NotificationListener.
      */
     public void stop() {
-        if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
-            for (String canonicalName : mbeanNameMap.keySet()) {
-                try {
-                    MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
-                    mbeanServer.removeNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
-                } catch (InstanceNotFoundException | ListenerNotFoundException removeListenerEx) {
-                    log.warn(String.format("Error removing listener for %s", canonicalName), removeListenerEx);
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
+                for (String canonicalName : mbeanNameMap.keySet()) {
+                    try {
+                        MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
+                        mbeanServer.removeNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
+                    } catch (InstanceNotFoundException | ListenerNotFoundException removeListenerEx) {
+                        log.warn(String.format("Error removing listener for %s", canonicalName), removeListenerEx);
+                    }
                 }
             }
         }
@@ -218,20 +234,22 @@ public class SplunkJmxNotificationListener implements NotificationListener {
 
     @Override
     public void handleNotification(Notification notification, Object handback) {
-        log.debug("Received Notification: {} - {}", handback, notification.getType());
-        String type = notification.getType();
-        String eventBody = splunkEventBuilder.source(type).eventBody(notification).build();
+        try (SplunkMDCHelper helper = createMdcHelper()) {
+            log.debug("Received Notification: {} - {}", handback, notification.getType());
+            String type = notification.getType();
+            String eventBody = splunkEventBuilder.source(type).eventBody(notification).build();
 
-        try {
-            splunkClient.sendEvent(eventBody);
-            log.debug("Sent Event");
-        } catch (EventDeliveryException deliveryEx) {
-            log.error(String.format("Failed to send event: {}", deliveryEx.getEvent()), deliveryEx);
+            try {
+                splunkClient.sendEvent(eventBody);
+                log.debug("Sent Event");
+            } catch (EventDeliveryException deliveryEx) {
+                log.error(String.format("Failed to send event: {}", deliveryEx.getEvent()), deliveryEx);
+            }
         }
     }
 
     void validateAndAddSourceMBName(String objectNameString) {
-        try {
+        try (SplunkMDCHelper helper = createMdcHelper()) {
             ObjectName tmpObjectName = new ObjectName(objectNameString);
             if (sourceMBeanNames == null) {
                 sourceMBeanNames = new HashSet<>();
@@ -242,4 +260,23 @@ public class SplunkJmxNotificationListener implements NotificationListener {
         }
     }
 
+    protected SplunkMDCHelper createMdcHelper() {
+        return new JmxNotificationListenerMDCHelper();
+    }
+
+    class JmxNotificationListenerMDCHelper extends SplunkMDCHelper {
+        public static final String MDC_JMX_NOTIFICATAION_SOURCE_MEANS = "splunk.jmx.notification.source";
+
+        JmxNotificationListenerMDCHelper() {
+            addEventBuilderValues(splunkEventBuilder);
+            if (hasSourceMBeans()) {
+                saveContextMap();
+                if (sourceMBeanNames.size() > 1) {
+                    MDC.put(MDC_JMX_NOTIFICATAION_SOURCE_MEANS, sourceMBeanNames.toString());
+                } else {
+                    MDC.put(MDC_JMX_NOTIFICATAION_SOURCE_MEANS, sourceMBeanNames.iterator().next());
+                }
+            }
+        }
+    }
 }
