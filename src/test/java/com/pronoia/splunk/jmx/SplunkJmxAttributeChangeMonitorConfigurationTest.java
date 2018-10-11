@@ -62,10 +62,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     String[] initialAttributeArray = new String[] {"BrokerId"};
     String[] attributeArray = new String[] {"TotalEnqueueCount", "TotalDequeueCount", "TotalConsumerCount", "TotalMessageCount"};
 
-    List<String> initialAttributeList = new LinkedList<>();
-    List<String> attributeList = new LinkedList<>();
-    List<String> combinedAttributeList = new LinkedList<>();
-
     Set<String> initialAttributeSet = new TreeSet<>();
     Set<String> attributeSet = new TreeSet<>();
     Set<String> combinedAttributeSet = new TreeSet<>();
@@ -126,25 +122,10 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
             combinedAttributeSet.add(attribute);
         }
 
-        // Get the list of initial attribute names in the same order as the set
-        for (String attribute : initialAttributeSet) {
-            initialAttributeList.add(attribute);
-        }
-
         // Populate the sorted set of attributes
         for (String attribute : attributeArray) {
             attributeSet.add(attribute);
             combinedAttributeSet.add(attribute);
-        }
-
-        // Get the list of attribute names in the same order as the set
-        for (String attribute : attributeSet) {
-            attributeList.add(attribute);
-        }
-
-        // Get the list of combined attribute names in the same order as the set
-        for (String attribute : combinedAttributeSet) {
-            combinedAttributeList.add(attribute);
         }
     }
 
@@ -164,30 +145,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     }
 
     @Test
-    public void testSetObservedObjectsFromListOfStrings() throws Exception {
-        assertTrue("Unexpected default value", instance.observedObjects.isEmpty());
-
-        instance.observedObjects = initialObjectNameSet;
-        assertFalse("Unexpected initial value", instance.observedObjects.isEmpty());
-
-        instance.setObservedObjects(objectNameStringList);
-
-        assertEquals(expectedObjectNameSet, instance.observedObjects);
-    }
-
-    @Test
-    public void testSetObservedObjectsFromVarargStrings() throws Exception {
-        assertTrue("Unexpected default value", instance.observedObjects.isEmpty());
-
-        instance.observedObjects = initialObjectNameSet;
-        assertFalse("Unexpected initial value", instance.observedObjects.isEmpty());
-
-        instance.setObservedObjects(objectNameStringArray);
-
-        assertEquals(expectedObjectNameSet, instance.observedObjects);
-    }
-
-    @Test
     public void testSetObservedObjectsFromVarargObjectNames() throws Exception {
         assertTrue("Unexpected default value", instance.observedObjects.isEmpty());
 
@@ -197,18 +154,6 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
         instance.setObservedObjects(objectNameArray);
 
         assertEquals(expectedObjectNameSet, instance.observedObjects);
-    }
-
-    @Test
-    public void testAddObservedObjectsFromVarargStrings() throws Exception {
-        assertTrue("Unexpected default value", instance.observedObjects.isEmpty());
-
-        instance.observedObjects = initialObjectNameSet;
-        assertFalse("Unexpected initial value", instance.observedObjects.isEmpty());
-
-        instance.addObservedObjects(objectNameStringArray);
-
-        assertEquals(combinedObjectNameSet, instance.observedObjects);
     }
 
     @Test
@@ -224,21 +169,9 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     }
 
     @Test
-    public void testRemoveObservedObjectFromString() throws Exception {
-        assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
-        assertEquals(expectedObjectNameSet, instance.observedObjects);
-
-        instance.removeObservedObject("java.lang:type=GarbageCollector,name=PS MarkSweep");
-        assertNotEquals(expectedObjectNameSet, instance.observedObjects);
-        expectedObjectNameSet.remove(new ObjectName("java.lang:type=GarbageCollector,name=PS MarkSweep"));
-        assertEquals(expectedObjectNameSet, instance.observedObjects);
-    }
-
-    @Test
     public void testRemoveObservedObjectFromObjectName() throws Exception {
         assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
+        instance.setObservedObjects(objectNameArray);
         assertEquals(expectedObjectNameSet, instance.observedObjects);
 
         instance.removeObservedObject(new ObjectName("java.lang:type=GarbageCollector,name=PS MarkSweep"));
@@ -248,19 +181,9 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     }
 
     @Test
-    public void testContainsObservedObjectFromString() throws Exception {
-        assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
-
-        assertTrue(instance.containsObservedObject("java.lang:type=GarbageCollector,name=PS MarkSweep"));
-        assertTrue(instance.containsObservedObject("java.lang:name=PS MarkSweep,type=GarbageCollector"));
-        assertFalse(instance.containsObservedObject("java.lang:type=GarbageCollector,name=PS MarkSweep,dummy=value"));
-    }
-
-    @Test
     public void testContainsObservedObjectFromObjectName() throws Exception {
         assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
+        instance.setObservedObjects(objectNameArray);
 
         assertTrue(instance.containsObservedObject(new ObjectName("java.lang:type=GarbageCollector,name=PS MarkSweep")));
         assertTrue(instance.containsObservedObject(new ObjectName("java.lang:name=PS MarkSweep,type=GarbageCollector")));
@@ -270,17 +193,9 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
     @Test
     public void testGetObservedObjects() throws Exception {
         assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
+        instance.setObservedObjects(objectNameArray);
 
-        assertEquals(objectNameList, instance.getObservedObjects());
-    }
-
-    @Test
-    public void testGetObservedObjectNames() throws Exception {
-        assertTrue(instance.observedObjects.isEmpty());
-        instance.setObservedObjects(objectNameStringArray);
-
-        assertEquals(objectNameStringList, instance.getObservedObjectNames());
+        assertEquals(expectedObjectNameSet, instance.getObservedObjects());
     }
 
     @Test
@@ -289,19 +204,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.observedAttributes = attributeSet;
 
-        assertEquals(attributeList, instance.getObservedAttributes());
-    }
-
-    @Test
-    public void testSetObservedAttributesFromListOfStrings() throws Exception {
-        assertTrue("Unexpected default value", instance.observedAttributes.isEmpty());
-
-        instance.observedAttributes = initialAttributeSet;
-        assertFalse("Unexpected initial value", instance.observedAttributes.isEmpty());
-
-        instance.setObservedAttributes(attributeList);
-
-        assertEquals(attributeList, instance.getObservedAttributes());
+        assertEquals(attributeSet, instance.getObservedAttributes());
     }
 
     @Test
@@ -313,7 +216,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.setObservedAttributes(attributeArray);
 
-        assertEquals(attributeList, instance.getObservedAttributes());
+        assertEquals(attributeSet, instance.getObservedAttributes());
     }
 
     @Test
@@ -325,7 +228,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.addObservedAttributes(attributeArray);
 
-        assertEquals(combinedAttributeList, instance.getObservedAttributes());
+        assertEquals(combinedAttributeSet, instance.getObservedAttributes());
     }
 
     @Test
@@ -334,19 +237,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.collectedAttributes = attributeSet;
 
-        assertEquals(attributeList, instance.getCollectedAttributes());
-    }
-
-    @Test
-    public void testSetCollectedAttributesFromListOfStrings() throws Exception {
-        assertTrue("Unexpected default value", instance.collectedAttributes.isEmpty());
-
-        instance.collectedAttributes = initialAttributeSet;
-        assertFalse("Unexpected initial value", instance.collectedAttributes.isEmpty());
-
-        instance.setCollectedAttributes(attributeList);
-
-        assertEquals(attributeList, instance.getCollectedAttributes());
+        assertEquals(attributeSet, instance.getCollectedAttributes());
     }
 
     @Test
@@ -358,7 +249,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.setCollectedAttributes(attributeArray);
 
-        assertEquals(attributeList, instance.getCollectedAttributes());
+        assertEquals(attributeSet, instance.getCollectedAttributes());
     }
 
     @Test
@@ -370,7 +261,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
 
         instance.addCollectedAttributes(attributeArray);
 
-        assertEquals(combinedAttributeList, instance.getCollectedAttributes());
+        assertEquals(combinedAttributeSet, instance.getCollectedAttributes());
     }
 
     @Test
@@ -384,7 +275,7 @@ public class SplunkJmxAttributeChangeMonitorConfigurationTest {
         instance.collectedAttributes = attributeSet;
         assertFalse("Unexpected initial value", instance.collectedAttributes.isEmpty());
 
-        assertEquals(combinedAttributeList, instance.getObservedAndCollectedAttributes());
+        assertEquals(combinedAttributeSet, instance.getObservedAndCollectedAttributes());
     }
 
     @Test

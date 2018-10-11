@@ -19,8 +19,101 @@ package com.pronoia.splunk.stub;
 import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.EventDeliveryException;
 
+import java.util.Map;
+
+
 public class EventCollectorClientStub implements EventCollectorClient {
     public String lastEvent;
+
+    @Override
+    public String getClientId() {
+        return "stubbed-client";
+    }
+
+    @Override
+    public boolean hasEventHost() {
+        return false;
+    }
+
+    @Override
+    public String getEventHost() {
+        return null;
+    }
+
+    @Override
+    public boolean hasEventIndex() {
+        return false;
+    }
+
+    @Override
+    public String getEventIndex() {
+        return null;
+    }
+
+    @Override
+    public boolean hasEventSource() {
+        return false;
+    }
+
+    @Override
+    public String getEventSource() {
+        return null;
+    }
+
+    @Override
+    public boolean hasEventSourcetype() {
+        return false;
+    }
+
+    @Override
+    public String getEventSourcetype() {
+        return null;
+    }
+
+    @Override
+    public boolean hasConstantFields() {
+        return false;
+    }
+
+    @Override
+    public Map<String, String> getConstantFields() {
+        return null;
+    }
+
+    @Override
+    public Map<String, String> getConstantFields(boolean copy) {
+        return null;
+    }
+
+    @Override
+    public boolean hasIncludedSystemProperties() {
+        return false;
+    }
+
+    @Override
+    public Map<String, String> getIncludedSystemProperties() {
+        return null;
+    }
+
+    @Override
+    public Map<String, String> getIncludedSystemProperties(boolean copy) {
+        return null;
+    }
+
+    @Override
+    public boolean hasIncludedEnvironmentVariables() {
+        return false;
+    }
+
+    @Override
+    public Map<String, String> getIncludedEnvironmentVariables() {
+        return null;
+    }
+
+    @Override
+    public Map<String, String> getIncludedEnvironmentVariables(boolean copy) {
+        return null;
+    }
 
     @Override
     public void start() {

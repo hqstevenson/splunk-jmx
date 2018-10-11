@@ -19,6 +19,7 @@ package com.pronoia.splunk.jmx.internal;
 import java.lang.management.ManagementFactory;
 
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.LinkedList;
@@ -28,14 +29,19 @@ import java.util.Set;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.Attribute;
 import javax.management.AttributeList;
+import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.IntrospectionException;
 import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
+import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
 
@@ -51,20 +57,30 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 
-public class AttributeChangeMonitorRunnable implements Runnable {
+public class AttributeChangeMonitorRunnable implements Runnable, AttributeChangeMonitorRunnableMBean {
+    static AtomicInteger changeMonitorRunnableCounter = new AtomicInteger(1);
+
+    final SplunkJmxAttributeChangeMonitor changeMonitor;
     final ObjectName queryObjectNamePattern;
     final String[] cachedAttributeArray;
     final Set<String> observedAttributes;
-    final Set<String> excludedObservedAttributes;
+    final Set<String> excludedAttributes;
     final Set<String> collectedAttributes;
     final int maxSuppressedDuplicates;
     final EventCollectorClient splunkClient;
 
     Logger log = LoggerFactory.getLogger(this.getClass());
 
+    String changeMonitorRunnableId = String.format("attribute-change-monitor-runnable-%d", changeMonitorRunnableCounter.getAndIncrement());
+    ObjectName changeMonitorRunnableObjectName;
+
     EventBuilder<AttributeList> splunkEventBuilder;
 
     volatile ConcurrentMap<String, LastAttributeInfo> lastAttributes = new ConcurrentHashMap<>();
+    Date lastPollTime;
+    long lastPollObjectCount;
+
+    boolean running;
 
     /**
      * Constructor for creating a runnable from the parent change monitor.
@@ -73,11 +89,12 @@ public class AttributeChangeMonitorRunnable implements Runnable {
      * @param queryObjectNamePattern the JMX ObjectName pattern for the runnable
      */
     public AttributeChangeMonitorRunnable(SplunkJmxAttributeChangeMonitor attributeChangeMonitor, ObjectName queryObjectNamePattern) {
+        this.changeMonitor = attributeChangeMonitor;
         this.queryObjectNamePattern = queryObjectNamePattern;
         this.cachedAttributeArray = attributeChangeMonitor.getCachedAttributeArray();
-        this.observedAttributes = attributeChangeMonitor.getObservedAttributeSet();
-        this.excludedObservedAttributes = attributeChangeMonitor.getExcludedObservedAttributeSet();
-        this.collectedAttributes = attributeChangeMonitor.getCollectedAttributeSet();
+        this.observedAttributes = attributeChangeMonitor.getObservedAttributes();
+        this.excludedAttributes = attributeChangeMonitor.getExcludedAttributes();
+        this.collectedAttributes = attributeChangeMonitor.getCollectedAttributes();
         this.maxSuppressedDuplicates = attributeChangeMonitor.getMaxSuppressedDuplicates();
 
         splunkClient = attributeChangeMonitor.getSplunkClient();
@@ -96,12 +113,73 @@ public class AttributeChangeMonitorRunnable implements Runnable {
     }
 
     @Override
+    public String getChangeMonitorId() {
+        return (changeMonitor != null) ? changeMonitor.getChangeMonitorId() : null;
+    }
+
+    @Override
+    public String getChangeMonitorRunnableId() {
+        return changeMonitorRunnableId;
+    }
+
+    @Override
+    public Date getLastPollTime() {
+        return lastPollTime;
+    }
+
+    @Override
+    public long getLastPollObjectCount() {
+        return lastPollObjectCount;
+    }
+
+    @Override
+    public String getObjectNameQuery() {
+        return queryObjectNamePattern.getCanonicalName();
+    }
+
+    @Override
+    public Set<String> getObservedAttributes() {
+        return observedAttributes;
+    }
+
+    @Override
+    public Set<String> getCollectedAttributes() {
+        return collectedAttributes;
+    }
+
+    @Override
+    public Set<String> getExcludedAttributes() {
+        return excludedAttributes;
+    }
+
+    @Override
+    public int getMaxSuppressedDuplicates() {
+        return maxSuppressedDuplicates;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    public void initialize() {
+        registerMBean();
+    }
+
+    public void destroy() {
+        unregisterMBean();
+    }
+
+    @Override
     public synchronized void run() {
+        running = true;
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.debug("run() started for JMX ObjectName {}", queryObjectNamePattern);
 
+            lastPollTime = new Date();
             MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
             Set<ObjectName> objectNameSet = mbeanServer.queryNames(queryObjectNamePattern, null);
+            lastPollObjectCount = (objectNameSet != null) ? objectNameSet.size() : 0;
             for (ObjectName objectName : objectNameSet) {
                 try {
                     collectAttributes(mbeanServer, objectName);
@@ -121,6 +199,8 @@ public class AttributeChangeMonitorRunnable implements Runnable {
             }
 
             log.debug("run() completed for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
+        } finally {
+            running = false;
         }
     }
 
@@ -146,7 +226,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
 
                 for (MBeanAttributeInfo attributeInfo : attributeInfoArray) {
                     String attributeName = attributeInfo.getName();
-                    if (excludedObservedAttributes != null && excludedObservedAttributes.contains(attributeName)) {
+                    if (excludedAttributes != null && excludedAttributes.contains(attributeName)) {
                         if (collectedAttributes != null && collectedAttributes.contains(attributeName)) {
                             // Keep the collected value if specified
                             queriedAttributeNameList.add(attributeName);
@@ -180,9 +260,9 @@ public class AttributeChangeMonitorRunnable implements Runnable {
                     monitoredAttributeNames = observedAttributes;
                 } else {
                     monitoredAttributeNames = attributeMap.keySet();
-                    if (excludedObservedAttributes != null && !excludedObservedAttributes.isEmpty()) {
-                        log.trace("Excluding attributes: {}", excludedObservedAttributes);
-                        monitoredAttributeNames.removeAll(excludedObservedAttributes);
+                    if (excludedAttributes != null && !excludedAttributes.isEmpty()) {
+                        log.trace("Excluding attributes: {}", excludedAttributes);
+                        monitoredAttributeNames.removeAll(excludedAttributes);
                     }
                 }
 
@@ -199,7 +279,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
                                 log.debug("Found change in attribute {} for {} - sending event", objectNameString, attributeName);
                                 lastAttributeInfo.setAttributeMap(attributeMap);
                                 splunkEventBuilder.source(objectNameString).eventBody(attributeList);
-                                splunkClient.sendEvent(splunkEventBuilder.build());
+                                splunkClient.sendEvent(splunkEventBuilder.build(splunkClient));
                                 lastAttributes.put(objectNameString, lastAttributeInfo);
                                 return;
                             }
@@ -214,7 +294,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
                                     lastAttributeInfo.getSuppressionCount(), maxSuppressedDuplicates, objectNameString);
                             lastAttributeInfo.resetSuppressionCount();
                             splunkEventBuilder.source(objectNameString).eventBody(attributeList);
-                            splunkClient.sendEvent(splunkEventBuilder.build());
+                            splunkClient.sendEvent(splunkEventBuilder.build(splunkClient));
                             lastAttributes.put(objectNameString, lastAttributeInfo);
                             return;
                         }
@@ -225,7 +305,7 @@ public class AttributeChangeMonitorRunnable implements Runnable {
                     lastAttributeInfo.setAttributeMap(attributeMap);
                     lastAttributes.put(objectNameString, lastAttributeInfo);
                     splunkEventBuilder.source(objectNameString).eventBody(attributeList);
-                    splunkClient.sendEvent(splunkEventBuilder.build());
+                    splunkClient.sendEvent(splunkEventBuilder.build(splunkClient));
                 }
             }
         }
@@ -240,6 +320,40 @@ public class AttributeChangeMonitorRunnable implements Runnable {
 
         return newAttributeMap;
     }
+
+    void registerMBean() {
+        String newChangeMonitorRunnableObjectNameString = String.format("com.pronoia.splunk.httpec:type=%s,changeMonitorId=%s,id=%s", this.getClass().getSimpleName(), getChangeMonitorId(), getChangeMonitorRunnableId());
+        try {
+            changeMonitorRunnableObjectName = new ObjectName(newChangeMonitorRunnableObjectNameString);
+        } catch (MalformedObjectNameException malformedNameEx) {
+            log.warn("Failed to create ObjectName for string {} - MBean will not be registered", newChangeMonitorRunnableObjectNameString, malformedNameEx);
+            return;
+        }
+
+        try {
+            ManagementFactory.getPlatformMBeanServer().registerMBean(this, changeMonitorRunnableObjectName);
+        } catch (InstanceAlreadyExistsException allreadyExistsEx) {
+            log.warn("MBean already registered for change monitor runnable {}", changeMonitorRunnableObjectName, allreadyExistsEx);
+        } catch (MBeanRegistrationException registrationEx) {
+            log.warn("MBean registration failure for change monitor runnable {}", newChangeMonitorRunnableObjectNameString, registrationEx);
+        } catch (NotCompliantMBeanException nonCompliantMBeanEx) {
+            log.warn("Invalid MBean for change monitor runnable {}", newChangeMonitorRunnableObjectNameString, nonCompliantMBeanEx);
+        }
+
+    }
+
+    void unregisterMBean() {
+        if (changeMonitorRunnableObjectName != null) {
+            try {
+                ManagementFactory.getPlatformMBeanServer().unregisterMBean(changeMonitorRunnableObjectName);
+            } catch (InstanceNotFoundException | MBeanRegistrationException unregisterEx) {
+                log.warn("Failed to unregister change monitor runnable MBean {}", changeMonitorRunnableObjectName.getCanonicalName(), unregisterEx);
+            } finally {
+                changeMonitorRunnableObjectName = null;
+            }
+        }
+    }
+
 
     protected SplunkMDCHelper createMdcHelper() {
         return new AttributeChangeMonitorRunnableMACHelper();

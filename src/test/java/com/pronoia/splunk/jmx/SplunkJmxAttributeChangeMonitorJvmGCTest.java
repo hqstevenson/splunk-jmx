@@ -18,6 +18,8 @@ package com.pronoia.splunk.jmx;
 
 import com.pronoia.splunk.stub.EventCollectorClientStub;
 
+import javax.management.ObjectName;
+
 import org.junit.Before;
 import org.junit.Test;
 
@@ -35,7 +37,7 @@ public class SplunkJmxAttributeChangeMonitorJvmGCTest {
     public void setUp() throws Exception {
         instance = new SplunkJmxAttributeChangeMonitor();
 
-        instance.setObservedObjects("java.lang:type=GarbageCollector,name=*");
+        instance.setObservedObjects( new ObjectName("java.lang:type=GarbageCollector,name=*"));
     }
 
     @Test

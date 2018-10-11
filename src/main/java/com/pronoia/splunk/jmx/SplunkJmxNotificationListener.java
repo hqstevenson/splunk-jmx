@@ -18,15 +18,20 @@ package com.pronoia.splunk.jmx;
 
 import java.lang.management.ManagementFactory;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.management.InstanceAlreadyExistsException;
 import javax.management.InstanceNotFoundException;
 import javax.management.ListenerNotFoundException;
+import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
 import javax.management.Notification;
 import javax.management.NotificationListener;
 import javax.management.ObjectName;
@@ -51,13 +56,61 @@ import org.slf4j.MDC;
  *
  * <p>index can be specified
  */
-public class SplunkJmxNotificationListener implements NotificationListener {
+public class SplunkJmxNotificationListener implements NotificationListener, SplunkJmxNotificationListenerMBean {
+    static AtomicInteger listenerCounter = new AtomicInteger(1);
+
     Logger log = LoggerFactory.getLogger(this.getClass());
+    String notificationListenerId;
+    ObjectName notificationListenerObjectName;
+
     Set<String> sourceMBeanNames;
     Map<String, ObjectName> mbeanNameMap;
 
     EventCollectorClient splunkClient;
     EventBuilder<Notification> splunkEventBuilder;
+
+    Date startTime;
+    Date stopTime;
+    Date lastNotificationTime;
+    String lastNotificationType;
+
+    volatile boolean running;
+
+    @Override
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    @Override
+    public Date getStopTime() {
+        return stopTime;
+    }
+
+    @Override
+    public Date getLastNotificationTime() {
+        return lastNotificationTime;
+    }
+
+    @Override
+    public String getLastNotificationType() {
+        return lastNotificationType;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    public String getNotificationListenerId() {
+        if (notificationListenerId == null || notificationListenerId.isEmpty()) {
+            notificationListenerId = String.format("splunk-jmx-notification-listener-%d", listenerCounter.getAndIncrement());
+        }
+        return notificationListenerId;
+    }
+
+    public void setNotificationListenerId(String notificationListenerId) {
+        this.notificationListenerId = notificationListenerId;
+    }
 
     /**
      * Determine if there are any MBean Names configured for monitoring.
@@ -73,6 +126,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
      *
      * @return the Set of MBean Names
      */
+    @Override
     public Set<String> getSourceMBeans() {
         if (mbeanNameMap != null) {
             return mbeanNameMap.keySet();
@@ -145,9 +199,20 @@ public class SplunkJmxNotificationListener implements NotificationListener {
         this.splunkEventBuilder = splunkEventBuilder;
     }
 
+    public void initialize() {
+        registerMBean();
+        start();
+    }
+
+    public void destroy() {
+        stop();
+        unregisterMBean();
+    }
+
     /**
      * Start the JMX NotificationListener.
      */
+    @Override
     public void start() {
         if (splunkClient == null) {
             throw new IllegalStateException("Splunk Client must be specified");
@@ -199,6 +264,8 @@ public class SplunkJmxNotificationListener implements NotificationListener {
                 for (String canonicalName : mbeanNameMap.keySet()) {
                     try {
                         mbeanServer.addNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
+                        running = true;
+                        startTime = new Date();
                     } catch (InstanceNotFoundException instanceNotFoundEx) {
                         log.warn(String.format("Failed to add listener for MBean %s", canonicalName), instanceNotFoundEx);
                         mbeanNameMap.remove(canonicalName);
@@ -217,6 +284,7 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     /**
      * Stop the JMX NotificationListener.
      */
+    @Override
     public void stop() {
         try (SplunkMDCHelper helper = createMdcHelper()) {
             if (mbeanNameMap != null && !mbeanNameMap.isEmpty()) {
@@ -224,11 +292,25 @@ public class SplunkJmxNotificationListener implements NotificationListener {
                     try {
                         MBeanServer mbeanServer = ManagementFactory.getPlatformMBeanServer();
                         mbeanServer.removeNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
+                        stopTime = new Date();
                     } catch (InstanceNotFoundException | ListenerNotFoundException removeListenerEx) {
-                        log.warn(String.format("Error removing listener for %s", canonicalName), removeListenerEx);
+                        log.warn(String.format("Error removing notification listener for %s", canonicalName), removeListenerEx);
                     }
                 }
             }
+        } finally {
+            running = false;
+        }
+    }
+
+    @Override
+    public void restart() {
+        stop();
+        try {
+            Thread.sleep(5000);
+            start();
+        } catch (InterruptedException interruptedEx) {
+            log.warn("Restart was interrupted - notification listener will not be restarted", interruptedEx);
         }
     }
 
@@ -236,8 +318,9 @@ public class SplunkJmxNotificationListener implements NotificationListener {
     public void handleNotification(Notification notification, Object handback) {
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.debug("Received Notification: {} - {}", handback, notification.getType());
-            String type = notification.getType();
-            String eventBody = splunkEventBuilder.source(type).eventBody(notification).build();
+            lastNotificationTime = new Date();
+            lastNotificationType = notification.getType();
+            String eventBody = splunkEventBuilder.source(lastNotificationType).eventBody(notification).build(splunkClient);
 
             try {
                 splunkClient.sendEvent(eventBody);
@@ -262,6 +345,39 @@ public class SplunkJmxNotificationListener implements NotificationListener {
 
     protected SplunkMDCHelper createMdcHelper() {
         return new JmxNotificationListenerMDCHelper();
+    }
+
+    void registerMBean() {
+        String newFactoryObjectNameString = String.format("com.pronoia.splunk.httpec:type=%s,id=%s", this.getClass().getSimpleName(), getNotificationListenerId());
+        try {
+            notificationListenerObjectName = new ObjectName(newFactoryObjectNameString);
+        } catch (MalformedObjectNameException malformedNameEx) {
+            log.warn("Failed to create ObjectName for string {} - MBean will not be registered", newFactoryObjectNameString, malformedNameEx);
+            return;
+        }
+
+        try {
+            ManagementFactory.getPlatformMBeanServer().registerMBean(this, notificationListenerObjectName);
+        } catch (InstanceAlreadyExistsException allreadyExistsEx) {
+            log.warn("MBean already registered for notification listener {}", notificationListenerObjectName, allreadyExistsEx);
+        } catch (MBeanRegistrationException registrationEx) {
+            log.warn("MBean registration failure for notification listener {}", newFactoryObjectNameString, registrationEx);
+        } catch (NotCompliantMBeanException nonCompliantMBeanEx) {
+            log.warn("Invalid MBean for notification listener {}", newFactoryObjectNameString, nonCompliantMBeanEx);
+        }
+
+    }
+
+    void unregisterMBean() {
+        if (notificationListenerObjectName != null) {
+            try {
+                ManagementFactory.getPlatformMBeanServer().unregisterMBean(notificationListenerObjectName);
+            } catch (InstanceNotFoundException | MBeanRegistrationException unregisterEx) {
+                log.warn("Failed to unregister notification listener MBean {}", notificationListenerObjectName.getCanonicalName(), unregisterEx);
+            } finally {
+                notificationListenerObjectName = null;
+            }
+        }
     }
 
     class JmxNotificationListenerMDCHelper extends SplunkMDCHelper {

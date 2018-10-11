@@ -16,16 +16,24 @@
  */
 package com.pronoia.splunk.jmx;
 
-import java.util.LinkedList;
+import java.lang.management.ManagementFactory;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.management.AttributeList;
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
 import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
@@ -45,7 +53,12 @@ import org.slf4j.MDC;
  *
  * <p>This class is modeled after the javax.management.monitor.Monitor class.
  */
-public class SplunkJmxAttributeChangeMonitor {
+public class SplunkJmxAttributeChangeMonitor implements SplunkJmxAttributeChangeMonitorMBean {
+    static AtomicInteger changeMonitorCounter = new AtomicInteger(1);
+
+    String changeMonitorId;
+    ObjectName changeMonitorObjectName;
+
     Logger log = LoggerFactory.getLogger(this.getClass());
     ScheduledExecutorService executor;
 
@@ -57,7 +70,7 @@ public class SplunkJmxAttributeChangeMonitor {
     int maxSuppressedDuplicates = -1;
 
     Set<String> observedAttributes = new TreeSet<>();
-    Set<String> excludedObservedAttributes = new TreeSet<>();
+    Set<String> excludedAttributes = new TreeSet<>();
     Set<String> collectedAttributes = new TreeSet<>();
 
     String[] cachedAttributeArray;
@@ -65,12 +78,72 @@ public class SplunkJmxAttributeChangeMonitor {
     EventCollectorClient splunkClient;
     EventBuilder<AttributeList> splunkEventBuilder;
 
+    Map<String, AttributeChangeMonitorRunnable> runnableMap = new ConcurrentHashMap<>();
+
+    Date startTime;
+    Date stopTime;
+
+    @Override
+    public boolean isRunning() {
+        return !(executor.isShutdown() || executor.isTerminated());
+    }
+
+    @Override
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    @Override
+    public Date getStopTime() {
+        return stopTime;
+    }
+
+    @Override
+    public String getChangeMonitorId() {
+        if (changeMonitorId == null || changeMonitorId.isEmpty()) {
+            changeMonitorId = String.format("splunk-jmx-attribute-change-monitor-%d", changeMonitorCounter.getAndIncrement());
+        }
+        return changeMonitorId;
+    }
+
+    public void setChangeMonitorId(String changeMonitorId) {
+        this.changeMonitorId = changeMonitorId;
+    }
+
     public int getExecutorPoolSize() {
         return executorPoolSize;
     }
 
     public void setExecutorPoolSize(int executorPoolSize) {
         this.executorPoolSize = executorPoolSize;
+    }
+
+
+    public synchronized boolean registerRunnable(AttributeChangeMonitorRunnable changeMonitorRunnable) {
+        String runnableKey = changeMonitorRunnable.getObjectNameQuery();
+
+        AttributeChangeMonitorRunnable previouslyRegisteredRunnable =
+            runnableMap.putIfAbsent(runnableKey, changeMonitorRunnable);
+        if (previouslyRegisteredRunnable != null) {
+            log.warn("Failed to register change monitor runnable - a consumer is already registered for {}", runnableKey);
+            return false;
+        } else {
+            changeMonitorRunnable.initialize();
+        }
+
+        return true;
+    }
+
+    public synchronized boolean unregisterCRunnable(AttributeChangeMonitorRunnable changeMonitorRunnable) {
+        String runnableKey = changeMonitorRunnable.getObjectNameQuery();
+        AttributeChangeMonitorRunnable removedRunnable = runnableMap.remove(runnableKey);
+        if (removedRunnable != null) {
+            removedRunnable.destroy();
+            return true;
+        }
+
+        log.warn("Failed to unregister change monitor runnable  - a change monitor runnable is not registered for {}", runnableKey);
+        return false;
     }
 
 
@@ -89,36 +162,14 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @param objectNames The object names to observe.
      */
-    public void setObservedObjects(List<String> objectNames) {
+    public void setObservedObjects(Set<ObjectName> objectNames) {
         if (observedObjects == null) {
             observedObjects = new TreeSet<>();
         } else {
             observedObjects.clear();
         }
 
-        for (String objectName : objectNames) {
-            try {
-                observedObjects.add(new ObjectName(objectName));
-            } catch (MalformedObjectNameException malformedObjectNameEx) {
-                log.warn(String.format("Ignoring invalid object name: %s", objectName), malformedObjectNameEx);
-            }
-        }
-    }
-
-    /**
-     * Removes all objects from the set of observed objects, and then adds the
-     * objects corresponding to the specified strings.
-     *
-     * @param objectNames The object names to observe.
-     */
-    public void setObservedObjects(String... objectNames) {
-        if (observedObjects == null) {
-            observedObjects = new TreeSet<>();
-        } else {
-            observedObjects.clear();
-        }
-
-        addObservedObjects(objectNames);
+        observedObjects.addAll(objectNames);
     }
 
     /**
@@ -135,24 +186,6 @@ public class SplunkJmxAttributeChangeMonitor {
         }
 
         addObservedObjects(objects);
-    }
-
-    /**
-     * Adds the objects corresponding to the specified strings.
-     *
-     * @param objectNames The object names to observe.
-     */
-    public void addObservedObjects(String... objectNames) {
-        if (observedObjects == null) {
-            observedObjects = new TreeSet<>();
-        }
-        for (String objectName : objectNames) {
-            try {
-                observedObjects.add(new ObjectName(objectName));
-            } catch (MalformedObjectNameException malformedObjectNameEx) {
-                log.warn(String.format("Ignoring invalid object name: %s", objectName), malformedObjectNameEx);
-            }
-        }
     }
 
     /**
@@ -177,39 +210,10 @@ public class SplunkJmxAttributeChangeMonitor {
     /**
      * Removes the specified object from the set of observed MBeans.
      *
-     * @param objectName The name of object to remove.
-     */
-    public void removeObservedObject(String objectName) {
-        try {
-            observedObjects.remove(new ObjectName(objectName));
-        } catch (MalformedObjectNameException malformedObjectNameEx) {
-            log.warn(String.format("Ignoring invalid object name: {}", objectName), malformedObjectNameEx);
-        }
-    }
-
-    /**
-     * Removes the specified object from the set of observed MBeans.
-     *
      * @param object The object to remove.
      */
     public void removeObservedObject(ObjectName object) {
         observedObjects.remove(object);
-    }
-
-    /**
-     * Tests whether the specified object is in the set of observed MBeans.
-     *
-     * @param objectName The object to check.
-     *
-     * @return <CODE>true</CODE> if the specified object is present, <CODE>false</CODE> otherwise.
-     */
-    public boolean containsObservedObject(String objectName) {
-        try {
-            return observedObjects.contains(new ObjectName(objectName));
-        } catch (MalformedObjectNameException malformedObjectNameEx) {
-            log.warn(String.format("Ignoring invalid object name: {}", objectName), malformedObjectNameEx);
-        }
-        return false;
     }
 
     /**
@@ -228,14 +232,36 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return The objects being observed.
      */
-    public List<ObjectName> getObservedObjects() {
-        List<ObjectName> answer = new LinkedList<>();
+    public Set<ObjectName> getObservedObjects() {
+        Set<String> answer = new TreeSet<>();
 
         for (ObjectName objectName : observedObjects) {
-            answer.add(objectName);
+            answer.add(objectName.getCanonicalName());
         }
 
-        return answer;
+        return observedObjects;
+    }
+
+    /**
+     * Removes all objects from the set of observed objects, and then adds the
+     * objects corresponding to the specified strings.
+     *
+     * @param objectNameStrings The object names to observe.
+     */
+    public void setObservedObjectNameStrings(Set<String> objectNameStrings) {
+        if (observedObjects == null) {
+            observedObjects = new TreeSet<>();
+        } else {
+            observedObjects.clear();
+        }
+
+        for (String objectName : objectNameStrings) {
+            try {
+                observedObjects.add(new ObjectName(objectName));
+            } catch (MalformedObjectNameException malformedObjectNameEx) {
+                log.warn(String.format("Ignoring invalid object name: %s", objectName), malformedObjectNameEx);
+            }
+        }
     }
 
     /**
@@ -243,8 +269,9 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return The objects being observed.
      */
-    public List<String> getObservedObjectNames() {
-        List<String> answer = new LinkedList<>();
+    @Override
+    public Set<String> getObservedObjectNameStrings() {
+        Set<String> answer = new TreeSet<>();
 
         for (ObjectName objectName : observedObjects) {
             answer.add(objectName.getCanonicalName());
@@ -259,12 +286,29 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return The attributes being observed.
      */
-    public List<String> getObservedAttributes() {
-        List<String> answer = new LinkedList<>();
+    @Override
+    public Set<String> getObservedAttributes() {
+        Set<String> answer = new TreeSet<>();
 
         answer.addAll(observedAttributes);
 
         return answer;
+    }
+
+    /**
+     * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+     * to null), and will monitor all attributes.
+     *
+     * @param attributes The attributes to observe.
+     */
+    public void setObservedAttributes(Set<String> attributes) {
+        if (observedAttributes == null) {
+            observedAttributes = new TreeSet<>();
+        } else {
+            observedAttributes.clear();
+        }
+
+        addObservedAttributes(attributes);
     }
 
     /**
@@ -302,16 +346,16 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     /**
-     * Get a copy of the observed attributes.
+     * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+     * to null), and will monitor all attributes.
      *
-     * @return a Set of the names of the observed attributes
+     * @param attributes The attributes to observe.
      */
-    public Set<String> getObservedAttributeSet() {
-        Set<String> answer = new TreeSet<>();
-
-        answer.addAll(observedAttributes);
-
-        return answer;
+    public void addObservedAttributes(Set<String> attributes) {
+        if (observedAttributes == null) {
+            observedAttributes = new TreeSet<>();
+        }
+        observedAttributes.addAll(attributes);
     }
 
     /**
@@ -351,14 +395,31 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return The attributes being observed.
      */
-    public List<String> getCollectedAttributes() {
-        List<String> answer = new LinkedList<>();
+    @Override
+    public Set<String> getCollectedAttributes() {
+        Set<String> answer = new TreeSet<>();
 
         for (String attribute : collectedAttributes) {
             answer.add(attribute);
         }
 
         return answer;
+    }
+
+    /**
+     * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
+     * to null), and will monitor all attributes.
+     *
+     * @param attributes The attributes to observe.
+     */
+    public void setCollectedAttributes(Set<String> attributes) {
+        if (collectedAttributes == null) {
+            collectedAttributes = new TreeSet<>();
+        } else {
+            collectedAttributes.clear();
+        }
+
+        collectedAttributes.addAll(attributes);
     }
 
     /**
@@ -394,21 +455,6 @@ public class SplunkJmxAttributeChangeMonitor {
     }
 
     /**
-     * Get the collected attribute names.
-     *
-     * @return a Set of the names of the collected attributes
-     */
-    public Set<String> getCollectedAttributeSet() {
-        Set<String> answer = new TreeSet<>();
-
-        for (String attribute : collectedAttributes) {
-            answer.add(attribute);
-        }
-
-        return answer;
-    }
-
-    /**
      * Sets the attributes to observe. <BR>The observed attributes are not initialized by default (set
      * to null), and will monitor all attributes.
      *
@@ -432,8 +478,8 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return The attributes being observed.
      */
-    public List<String> getObservedAndCollectedAttributes() {
-        List<String> answer = new LinkedList<>();
+    public Set<String> getObservedAndCollectedAttributes() {
+        Set<String> answer = new TreeSet<>();
 
         answer.addAll(observedAttributes);
         answer.addAll(collectedAttributes);
@@ -445,6 +491,7 @@ public class SplunkJmxAttributeChangeMonitor {
         return cachedAttributeArray;
     }
 
+    @Override
     public long getGranularityPeriod() {
         return granularityPeriod;
     }
@@ -453,6 +500,7 @@ public class SplunkJmxAttributeChangeMonitor {
         this.granularityPeriod = granularityPeriod;
     }
 
+    @Override
     public int getMaxSuppressedDuplicates() {
         return maxSuppressedDuplicates;
     }
@@ -493,10 +541,11 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @return a Set of the excluded attribute names
      */
-    public List<String> getExcludedObservedAttributes() {
-        List<String> answer = new LinkedList<>();
+    @Override
+    public Set<String> getExcludedAttributes() {
+        Set<String> answer = new TreeSet<>();
 
-        for (String attribute : excludedObservedAttributes) {
+        for (String attribute : excludedAttributes) {
             answer.add(attribute);
         }
 
@@ -508,44 +557,54 @@ public class SplunkJmxAttributeChangeMonitor {
      *
      * @param attributes the List of attributes to exclude from the event
      */
-    public void setExcludedObservedAttributes(List<String> attributes) {
-        if (excludedObservedAttributes == null) {
-            excludedObservedAttributes = new TreeSet<>();
+    public void setExcludedAttributes(Set<String> attributes) {
+        if (excludedAttributes == null) {
+            excludedAttributes = new TreeSet<>();
         } else {
-            excludedObservedAttributes.clear();
+            excludedAttributes.clear();
         }
-        excludedObservedAttributes.addAll(attributes);
+        excludedAttributes.addAll(attributes);
     }
 
     /**
-     * Get the names of the attributes that will be excluded from the event.
+     * Set the List of attributes that should be excluded.
      *
-     * @return a Set of attribute names that will be excluded from the event.
+     * @param attributes the List of attributes to exclude from the event
      */
-    public Set<String> getExcludedObservedAttributeSet() {
-        Set<String> answer = new TreeSet<>();
-
-        for (String attribute : excludedObservedAttributes) {
-            answer.add(attribute);
+    public void setExcludedAttributes(List<String> attributes) {
+        if (excludedAttributes == null) {
+            excludedAttributes = new TreeSet<>();
+        } else {
+            excludedAttributes.clear();
         }
+        excludedAttributes.addAll(attributes);
+    }
 
-        return answer;
+
+    public void initialize() {
+        registerMBean();
+        start();
+    }
+
+    public void destroy() {
+        stop();
+        unregisterMBean();
     }
 
     /**
      * Start the polling tasks.
      */
+    @Override
     public void start() {
         try (SplunkMDCHelper helper = createMdcHelper()) {
             log.info("Starting JMX attribute change monitor(s) for {}", observedObjects);
 
             if (splunkClient == null) {
-                String errorMessage = String.format("Splunk Client must be specified for %s", observedObjects);
-                throw new IllegalStateException(errorMessage);
+                throw new IllegalStateException("Splunk Client must be specified");
             }
 
             if (observedAttributes != null && !observedAttributes.isEmpty()) {
-                List<String> allAttributes = getObservedAndCollectedAttributes();
+                Set<String> allAttributes = getObservedAndCollectedAttributes();
 
                 cachedAttributeArray = new String[allAttributes.size()];
                 cachedAttributeArray = allAttributes.toArray(cachedAttributeArray);
@@ -555,12 +614,14 @@ public class SplunkJmxAttributeChangeMonitor {
 
             if (executor == null) {
                 executor = Executors.newScheduledThreadPool(executorPoolSize, new NamedThreadFactory(this.getClass().getSimpleName()));
+                startTime = new Date();
             }
 
             for (ObjectName object : observedObjects) {
                 AttributeChangeMonitorRunnable runnable = new AttributeChangeMonitorRunnable(this, object);
                 log.info("Scheduling {} for {}", AttributeChangeMonitorRunnable.class.getSimpleName(), object.getCanonicalName());
                 executor.scheduleWithFixedDelay(runnable, granularityPeriod, granularityPeriod, TimeUnit.SECONDS);
+                registerRunnable(runnable);
             }
         }
     }
@@ -568,18 +629,69 @@ public class SplunkJmxAttributeChangeMonitor {
     /**
      * Stop the polling process.
      */
+    @Override
     public void stop() {
         try (SplunkMDCHelper helper = createMdcHelper()) {
             if (executor != null && !executor.isShutdown() && !executor.isTerminated()) {
                 log.info("Stopping {} ....", this.getClass().getName());
                 executor.shutdown();
+                stopTime = new Date();
             }
             executor = null;
+
+            for ( AttributeChangeMonitorRunnable runnable : runnableMap.values()) {
+                unregisterCRunnable(runnable);
+            }
         }
     }
 
+    @Override
+    public void restart() {
+        stop();
+        try {
+            Thread.sleep(5000);
+            start();
+        } catch (InterruptedException interruptedEx) {
+            log.warn("Restart was interrupted - change monitor will not be restarted", interruptedEx);
+        }
+    }
+
+
     protected SplunkMDCHelper createMdcHelper() {
         return new JmxAttributeChangeMonitorMDCHelper();
+    }
+
+    void registerMBean() {
+        String newFactoryObjectNameString = String.format("com.pronoia.splunk.httpec:type=%s,id=%s", this.getClass().getSimpleName(), getChangeMonitorId());
+        try {
+            changeMonitorObjectName = new ObjectName(newFactoryObjectNameString);
+        } catch (MalformedObjectNameException malformedNameEx) {
+            log.warn("Failed to create ObjectName for string {} - MBean will not be registered", newFactoryObjectNameString, malformedNameEx);
+            return;
+        }
+
+        try {
+            ManagementFactory.getPlatformMBeanServer().registerMBean(this, changeMonitorObjectName);
+        } catch (InstanceAlreadyExistsException allreadyExistsEx) {
+            log.warn("MBean already registered for change monitor {}", changeMonitorObjectName, allreadyExistsEx);
+        } catch (MBeanRegistrationException registrationEx) {
+            log.warn("MBean registration failure for change monitor {}", newFactoryObjectNameString, registrationEx);
+        } catch (NotCompliantMBeanException nonCompliantMBeanEx) {
+            log.warn("Invalid MBean for change monitor {}", newFactoryObjectNameString, nonCompliantMBeanEx);
+        }
+
+    }
+
+    void unregisterMBean() {
+        if (changeMonitorObjectName != null) {
+            try {
+                ManagementFactory.getPlatformMBeanServer().unregisterMBean(changeMonitorObjectName);
+            } catch (InstanceNotFoundException | MBeanRegistrationException unregisterEx) {
+                log.warn("Failed to unregister change monitor MBean {}", changeMonitorObjectName.getCanonicalName(), unregisterEx);
+            } finally {
+                changeMonitorObjectName = null;
+            }
+        }
     }
 
     class JmxAttributeChangeMonitorMDCHelper extends SplunkMDCHelper {

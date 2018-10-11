@@ -24,6 +24,7 @@ import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
 
 import com.pronoia.splunk.eventcollector.EventBuilder;
+import com.pronoia.splunk.eventcollector.EventCollectorClient;
 import com.pronoia.splunk.eventcollector.eventbuilder.EventBuilderSupport;
 
 import static com.pronoia.splunk.eventcollector.EventCollectorInfo.EVENT_BODY_KEY;
@@ -91,12 +92,12 @@ public class JmxNotificationEventBuilder extends JmxEventBuilderSupport<Notifica
     }
 
     @Override
-    public String getSourceFieldValue() {
+    public String getSourceFieldValue(EventCollectorClient client) {
         if (hasEventBody()) {
             return getEventBody().getSource().toString();
         }
 
-        return super.getSourceFieldValue();
+        return super.getSourceFieldValue(client);
     }
 
     @Override
@@ -109,8 +110,8 @@ public class JmxNotificationEventBuilder extends JmxEventBuilderSupport<Notifica
     }
 
     @Override
-    protected void addAdditionalFieldsToMap(Map<String, Object> map) {
-        super.addAdditionalFieldsToMap(map);
+    protected void addAdditionalFieldsToMap(EventCollectorClient client, Map<String, Object> map) {
+        super.addAdditionalFieldsToMap(client, map);
 
         if (includeNotificationType) {
             map.put(NOTIFICATION_TYPE_KEY, getEventBody().getType());
