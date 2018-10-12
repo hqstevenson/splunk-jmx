@@ -71,7 +71,7 @@ public class AttributeChangeMonitorRunnable implements Runnable, AttributeChange
 
     Logger log = LoggerFactory.getLogger(this.getClass());
 
-    String changeMonitorRunnableId = String.format("attribute-change-monitor-runnable-%d", changeMonitorRunnableCounter.getAndIncrement());
+    String changeMonitorRunnableId;
     ObjectName changeMonitorRunnableObjectName;
 
     EventBuilder<AttributeList> splunkEventBuilder;
@@ -119,6 +119,9 @@ public class AttributeChangeMonitorRunnable implements Runnable, AttributeChange
 
     @Override
     public String getChangeMonitorRunnableId() {
+        if (changeMonitorRunnableId == null || changeMonitorRunnableId.isEmpty()) {
+            changeMonitorRunnableId = String.format("%s-runnable-%d", getChangeMonitorId(), changeMonitorRunnableCounter.getAndIncrement());
+        }
         return changeMonitorRunnableId;
     }
 
@@ -322,7 +325,7 @@ public class AttributeChangeMonitorRunnable implements Runnable, AttributeChange
     }
 
     void registerMBean() {
-        String newChangeMonitorRunnableObjectNameString = String.format("com.pronoia.splunk.httpec:type=%s,changeMonitorId=%s,id=%s", this.getClass().getSimpleName(), getChangeMonitorId(), getChangeMonitorRunnableId());
+        String newChangeMonitorRunnableObjectNameString = String.format("com.pronoia.splunk.httpec:type=%s,id=%s", this.getClass().getSimpleName(), getChangeMonitorRunnableId());
         try {
             changeMonitorRunnableObjectName = new ObjectName(newChangeMonitorRunnableObjectNameString);
         } catch (MalformedObjectNameException malformedNameEx) {

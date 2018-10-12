@@ -34,6 +34,8 @@ public interface AttributeChangeMonitorRunnableMBean {
     String getChangeMonitorId();
     String getChangeMonitorRunnableId();
 
+    int getMaxSuppressedDuplicates();
+
     Date getLastPollTime();
     long getLastPollObjectCount();
 
@@ -41,8 +43,6 @@ public interface AttributeChangeMonitorRunnableMBean {
     Set<String> getObservedAttributes();
     Set<String> getCollectedAttributes();
     Set<String> getExcludedAttributes();
-
-    int getMaxSuppressedDuplicates();
 
     boolean isRunning();
 
