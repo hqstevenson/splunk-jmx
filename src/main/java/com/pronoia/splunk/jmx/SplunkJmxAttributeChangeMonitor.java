@@ -259,7 +259,7 @@ public class SplunkJmxAttributeChangeMonitor implements SplunkJmxAttributeChange
             try {
                 observedObjects.add(new ObjectName(objectName));
             } catch (MalformedObjectNameException malformedObjectNameEx) {
-                log.warn(String.format("Ignoring invalid object name: %s", objectName), malformedObjectNameEx);
+                log.warn("Ignoring invalid object name: {}", objectName, malformedObjectNameEx);
             }
         }
     }

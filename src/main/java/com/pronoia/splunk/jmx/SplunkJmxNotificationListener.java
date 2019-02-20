@@ -267,7 +267,7 @@ public class SplunkJmxNotificationListener implements NotificationListener, Splu
                         running = true;
                         startTime = new Date();
                     } catch (InstanceNotFoundException instanceNotFoundEx) {
-                        log.warn(String.format("Failed to add listener for MBean %s", canonicalName), instanceNotFoundEx);
+                        log.warn("Failed to add listener for MBean {}", canonicalName, instanceNotFoundEx);
                         mbeanNameMap.remove(canonicalName);
                     }
                 }
@@ -294,7 +294,7 @@ public class SplunkJmxNotificationListener implements NotificationListener, Splu
                         mbeanServer.removeNotificationListener(mbeanNameMap.get(canonicalName), this, null, canonicalName);
                         stopTime = new Date();
                     } catch (InstanceNotFoundException | ListenerNotFoundException removeListenerEx) {
-                        log.warn(String.format("Error removing notification listener for %s", canonicalName), removeListenerEx);
+                        log.warn("Error removing notification listener for %s", canonicalName, removeListenerEx);
                     }
                 }
             }
@@ -326,7 +326,7 @@ public class SplunkJmxNotificationListener implements NotificationListener, Splu
                 splunkClient.sendEvent(eventBody);
                 log.debug("Sent Event");
             } catch (EventDeliveryException deliveryEx) {
-                log.error(String.format("Failed to send event: {}", deliveryEx.getEvent()), deliveryEx);
+                log.error("Failed to send event: {}", deliveryEx.getEvent(), deliveryEx);
             }
         }
     }
@@ -339,7 +339,7 @@ public class SplunkJmxNotificationListener implements NotificationListener, Splu
             }
             sourceMBeanNames.add(tmpObjectName.getCanonicalName());
         } catch (MalformedObjectNameException malformedObjectNameEx) {
-            log.warn(String.format("Ignoring invalid ObjectName: %s", objectNameString), malformedObjectNameEx);
+            log.warn("Ignoring invalid ObjectName: {}", objectNameString, malformedObjectNameEx);
         }
     }
 

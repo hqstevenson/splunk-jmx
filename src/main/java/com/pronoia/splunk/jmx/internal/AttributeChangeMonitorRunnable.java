@@ -187,21 +187,18 @@ public class AttributeChangeMonitorRunnable implements Runnable, AttributeChange
                 try {
                     collectAttributes(mbeanServer, objectName);
                 } catch (EventDeliveryException eventDeliveryEx) {
-                    String errorMessage = String.format("Failed to deliver event %s[%s]: %s",
-                            queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent());
-                    log.error(errorMessage, eventDeliveryEx);
+                    log.error("Failed to deliver event {}[{}]: {}",
+                            queryObjectNamePattern.getCanonicalName(), objectName.getCanonicalName(), eventDeliveryEx.getEvent(), eventDeliveryEx);
                 } catch (InstanceNotFoundException | ReflectionException | IntrospectionException jmxEx) {
-                    String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]",
-                            jmxEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
-                    log.warn(errorMessage, jmxEx);
+                    log.warn("Unexpected {} in run for JMX ObjectName {}[{}]",
+                            jmxEx.getClass().getSimpleName(), queryObjectNamePattern, objectName, jmxEx);
                 } catch (Throwable unexpectedEx) {
-                    String errorMessage = String.format("Unexpected %s in run for JMX ObjectName %s[%s]",
-                            unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern, objectName);
-                    log.warn(errorMessage, unexpectedEx);
+                    log.warn("Unexpected {} in run for JMX ObjectName {}[{}]",
+                            unexpectedEx.getClass().getSimpleName(), queryObjectNamePattern, objectName, unexpectedEx);
                 }
             }
 
-            log.debug("run() completed for JMX ObjectName {}", this.getClass().getSimpleName(), queryObjectNamePattern);
+            log.debug("run() completed for JMX ObjectName {}", queryObjectNamePattern);
         } finally {
             running = false;
         }
